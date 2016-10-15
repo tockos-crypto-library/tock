@@ -31,13 +31,11 @@
 // Date: August 5, 2015
 //
 
-use core::{intrinsics, ptr};
 use core::cell::Cell;
 use core::mem;
 use kernel::common::take_cell::TakeCell;
 use kernel::common::volatile_cell::VolatileCell;
 use kernel::hil;
-use kernel::hil::adc;
 use kernel::hil::adc::AdcSingle;
 use nvic;
 use pm::{self, Clock, PBAClock};
