@@ -25,10 +25,10 @@ pub enum ClockPhase {
     SampleTrailing,
 }
 
-pub enum ChipSelect<'a> {
-    Number(u8),
-    Gpio(&'a hil::gpio::Pin),
-}
+// pub enum ChipSelect<'a> {
+//     Number(u8),
+//     Gpio(&'a hil::gpio::Pin),
+// }
 
 pub trait SpiMasterClient {
     /// Called when a read/write operation finishes
@@ -77,6 +77,8 @@ pub trait SpiMasterClient {
 ///   write_byte(0xaa); // Uses SampleTrailing
 ///
 pub trait SpiMaster {
+    type ChipSelect: Copy;
+
     fn set_client(&self, client: &'static SpiMasterClient);
 
     fn init(&self);
@@ -99,10 +101,7 @@ pub trait SpiMaster {
 
     /// Returns whether this chip select is valid and was
     /// applied, 0 is always valid.
-    // fn set_chip_select(&self, cs: u8) -> bool;
-    fn set_chip_select(&self, cs: ChipSelect<'static>);
-    // fn clear_chip_select(&self);
-    // fn get_chip_select(&self) -> u8;
+    fn specify_chip_select(&self, cs: Self::ChipSelect);
 
     /// Returns the actual rate set
     fn set_rate(&self, rate: u32) -> u32;

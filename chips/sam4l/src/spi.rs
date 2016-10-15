@@ -214,6 +214,8 @@ impl Spi {
 }
 
 impl spi::SpiMaster for Spi {
+    type ChipSelect = u8;
+
     fn set_client(&self, client: &'static SpiMasterClient) {
         self.client.replace(client);
     }
@@ -379,10 +381,10 @@ impl spi::SpiMaster for Spi {
         self.write_active_csr(csr);
     }
 
-    fn set_chip_select(&self, cs: spi::ChipSelect<'static>) {
-        match cs {
-            spi::ChipSelect::Number(number) => {
-                let peripheral_number = match number {
+    fn specify_chip_select(&self, cs: Self::ChipSelect) {
+        // match cs {
+        //     spi::ChipSelect::Number(number) => {
+                let peripheral_number = match cs {
                     0 => Peripheral::Peripheral0,
                     1 => Peripheral::Peripheral1,
                     2 => Peripheral::Peripheral2,
@@ -390,11 +392,11 @@ impl spi::SpiMaster for Spi {
                     _ => Peripheral::Peripheral0,
                 };
                 self.set_active_peripheral(peripheral_number);
-            }
-            spi::ChipSelect::Gpio(pin) => {
+        //     }
+        //     spi::ChipSelect::Gpio(pin) => {
 
-            }
-        }
+        //     }
+        // }
 
         // cs
     }

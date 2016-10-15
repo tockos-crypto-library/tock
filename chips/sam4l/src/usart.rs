@@ -91,7 +91,8 @@ pub struct USART {
 
     client: TakeCell<UsartClient<'static>>,
 
-    spi_chip_select: TakeCell<hil::spi::ChipSelect<'static>>,
+    spi_chip_select: Cell<Option<&'static hil::gpio::Pin>>,
+    // spi_chip_select: TakeCell<&'static hil::gpio::Pin>,
 
     clock_freq: Cell<u32>,
 }
@@ -146,7 +147,7 @@ impl USART {
             // this gets defined later by `main.rs`
             client: TakeCell::empty(),
 
-            spi_chip_select: TakeCell::empty(),
+            spi_chip_select: Cell::new(None),
 
             clock_freq: Cell::new(48000000),
         }
@@ -542,15 +543,15 @@ impl dma::DMAClient for USART {
                     // TX transfer was completed
                     // self.rts_disable_spi_deassert_cs();
 
-                    self.spi_chip_select.map(|cs| {
-                        match *cs {
-                            hil::spi::ChipSelect::Number(num) => {
-                                self.rts_disable_spi_deassert_cs();
-                            }
-                            hil::spi::ChipSelect::Gpio(gpio) => {
-                                gpio.set();
-                            }
-                        }
+                    self.spi_chip_select.get().map(|cs| {
+                        // match *cs {
+                        //     hil::spi::ChipSelect::Number(num) => {
+                        //         self.rts_disable_spi_deassert_cs();
+                        //     }
+                        //     hil::spi::ChipSelect::Gpio(gpio) => {
+                                cs.set();
+                        //     }
+                        // }
                     });
 
                     // note that the DMA has finished but TX cannot be disabled yet
@@ -728,6 +729,8 @@ impl hil::uart::UART for USART {
 
 /// SPI
 impl hil::spi::SpiMaster for USART {
+    type ChipSelect = &'static hil::gpio::Pin;
+
     fn init(&self) {
         let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
 
@@ -778,17 +781,9 @@ impl hil::spi::SpiMaster for USART {
         self.tx_len.set(count);
 
         // Set !CS low
-        self.spi_chip_select.map(|cs| {
-            match *cs {
-                hil::spi::ChipSelect::Number(num) => {
-                    self.rts_enable_spi_assert_cs();
-                }
-                hil::spi::ChipSelect::Gpio(gpio) => {
-                    gpio.clear();
-                }
-            }
+        self.spi_chip_select.get().map(|cs| {
+            cs.clear();
         });
-
 
         // Set up dma transfer and start transmission
         self.tx_dma.map(move |dma| {
@@ -824,8 +819,8 @@ impl hil::spi::SpiMaster for USART {
 
     /// Returns whether this chip select is valid and was
     /// applied, 0 is always valid.
-    fn set_chip_select(&self, cs: hil::spi::ChipSelect<'static>) {
-        self.spi_chip_select.replace(cs);
+    fn specify_chip_select(&self, cs: Self::ChipSelect) {
+        self.spi_chip_select.set(Some(cs));
 
         // cs
     }
