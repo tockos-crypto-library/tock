@@ -218,12 +218,11 @@ impl USART {
             // alert client
             self.client.map(|usartclient| {
                 buffer.map(|buf| {
-                    // c.receive_complete(buf, length, error);
                     match usartclient {
                         &mut UsartClient::Uart(client) => {
                             client.receive_complete(buf, length, error);
                         }
-                        &mut UsartClient::SpiMaster(client) => {}
+                        &mut UsartClient::SpiMaster(_) => {}
                     }
                 });
             });
@@ -254,7 +253,7 @@ impl USART {
                         &mut UsartClient::Uart(client) => {
                             client.receive_complete(buf, length, error);
                         }
-                        &mut UsartClient::SpiMaster(client) => {}
+                        &mut UsartClient::SpiMaster(_) => {}
                     }
                 });
             });
@@ -382,12 +381,12 @@ impl USART {
         self.clock_freq.set(clock_freq);
     }
 
-    fn set_baud_rate(&self, baud_rate: u32) {
-        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
-        let cd = self.clock_freq.get() / (8 * baud_rate);
-        let brgr_val: u32 = 0x00000000 | cd as u32;
-        regs.brgr.set(brgr_val);
-    }
+    // fn set_baud_rate(&self, baud_rate: u32) {
+    //     let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+    //     let cd = self.clock_freq.get() / (8 * baud_rate);
+    //     let brgr_val: u32 = 0x00000000 | cd as u32;
+    //     regs.brgr.set(brgr_val);
+    // }
 
     fn set_baud_rate_divider(&self, clock_divider: u16) {
         let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
@@ -395,25 +394,25 @@ impl USART {
         regs.brgr.set(brgr_val);
     }
 
-    fn set_tx_timeguard(&self, timeguard: u8) {
-        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
-        let ttgr_val: u32 = 0x00000000 | timeguard as u32;
-        regs.ttgr.set(ttgr_val);
-    }
+    // fn set_tx_timeguard(&self, timeguard: u8) {
+    //     let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+    //     let ttgr_val: u32 = 0x00000000 | timeguard as u32;
+    //     regs.ttgr.set(ttgr_val);
+    // }
 
-    /// In non-SPI mode, this drives RTS low.
-    /// In SPI mode, this asserts (drives low) the chip select line.
-    fn rts_enable_spi_assert_cs(&self) {
-        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
-        regs.cr.set(1 << 18);
-    }
+    // /// In non-SPI mode, this drives RTS low.
+    // /// In SPI mode, this asserts (drives low) the chip select line.
+    // fn rts_enable_spi_assert_cs(&self) {
+    //     let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+    //     regs.cr.set(1 << 18);
+    // }
 
-    /// In non-SPI mode, this drives RTS high.
-    /// In SPI mode, this de-asserts (drives high) the chip select line.
-    fn rts_disable_spi_deassert_cs(&self) {
-        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
-        regs.cr.set(1 << 19);
-    }
+    // /// In non-SPI mode, this drives RTS high.
+    // /// In SPI mode, this de-asserts (drives high) the chip select line.
+    // fn rts_disable_spi_deassert_cs(&self) {
+    //     let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+    //     regs.cr.set(1 << 19);
+    // }
 
     fn enable_rx_timeout(&self, timeout: u8) {
         let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
@@ -436,17 +435,18 @@ impl USART {
         regs.idr.set((1 << 8)); // TIMEOUT
     }
 
-    fn enable_rx_terminator(&self, terminator: u8) {
-        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+    // fn enable_rx_terminator(&self, terminator: u8) {
+    fn enable_rx_terminator(&self, _: u8) {
+        // let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
         // XXX: implement me
         panic!("didn't write terminator stuff yet");
     }
 
-    fn disable_rx_terminator(&self) {
-        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
-        // XXX: implement me
-        panic!("didn't write terminator stuff yet");
-    }
+    // fn disable_rx_terminator(&self) {
+    //     let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+    //     // XXX: implement me
+    //     panic!("didn't write terminator stuff yet");
+    // }
 
     // for use by panic in io.rs
     pub fn send_byte(&self, byte: u8) {
@@ -501,7 +501,7 @@ impl dma::DMAClient for USART {
                                 &mut UsartClient::Uart(client) => {
                                     client.receive_complete(buf, length, hil::uart::Error::CommandComplete);
                                 }
-                                &mut UsartClient::SpiMaster(client) => {}
+                                &mut UsartClient::SpiMaster(_) => {}
                             }
                         });
                     });
@@ -529,7 +529,7 @@ impl dma::DMAClient for USART {
                                 &mut UsartClient::Uart(client) => {
                                     client.transmit_complete(buf, hil::uart::Error::CommandComplete);
                                 }
-                                &mut UsartClient::SpiMaster(client) => {}
+                                &mut UsartClient::SpiMaster(_) => {}
                             }
                         });
                     });
@@ -577,7 +577,7 @@ impl dma::DMAClient for USART {
                     self.client.map(|usartclient| {
                         txbuf.map(|tbuf| {
                             match usartclient {
-                                &mut UsartClient::Uart(client) => {},
+                                &mut UsartClient::Uart(_) => {},
                                 &mut UsartClient::SpiMaster(client) => {
                                     client.read_write_done(tbuf, rxbuf, len);
                                 }
@@ -727,6 +727,7 @@ impl hil::uart::UART for USART {
 }
 
 
+
 /// SPI
 impl hil::spi::SpiMaster for USART {
     type ChipSelect = &'static hil::gpio::Pin;
@@ -765,7 +766,7 @@ impl hil::spi::SpiMaster for USART {
 
     fn read_write_bytes(&self,
                         mut write_buffer: &'static mut [u8],
-                        mut read_buffer: Option<&'static mut [u8]>,
+                        read_buffer: Option<&'static mut [u8]>,
                         len: usize)
                         -> bool {
 
@@ -805,7 +806,7 @@ impl hil::spi::SpiMaster for USART {
         let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
         regs.cr.set((1 << 4) | (1 << 6));
 
-        regs.thr.set(0xa);
+        regs.thr.set(val as u32);
     }
 
     fn read_byte(&self) -> u8 {
@@ -814,7 +815,12 @@ impl hil::spi::SpiMaster for USART {
     }
 
     fn read_write_byte(&self, val: u8) -> u8 {
-        return 0;
+        let regs: &mut USARTRegisters = unsafe { mem::transmute(self.registers) };
+        regs.cr.set((1 << 4) | (1 << 6));
+
+        regs.thr.set(val as u32);
+        while regs.csr.get() & (1 << 0) == 0 {}
+        regs.rhr.get() as u8
     }
 
     /// Returns whether this chip select is valid and was
@@ -830,7 +836,8 @@ impl hil::spi::SpiMaster for USART {
     // }
 
     /// Returns the actual rate set
-    fn set_rate(&self, rate: u32) -> u32 {
+    // fn set_rate(&self, rate: u32) -> u32 {
+    fn set_rate(&self, _: u32) -> u32 {
         return 0;
     }
     fn get_rate(&self) -> u32 {
