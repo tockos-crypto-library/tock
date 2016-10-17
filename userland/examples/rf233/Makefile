@@ -16,6 +16,6 @@ CPPFLAGS += -DSTACK_SIZE=2048
 include $(TOCK_USERLAND_BASE_DIR)/Makefile
 
 .PHONY:
-clean:
+clean::
 	rm -Rf $(BUILDDIR)
 

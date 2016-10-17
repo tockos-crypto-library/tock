@@ -38,6 +38,6 @@ $(LIBTOCK_BUILDDIR)/libtock.a: $(LIBTOCK_OBJS) | $(LIBTOCK_BUILDDIR)
 	$(Q)$(TOOLCHAIN)-ranlib $@
 
 .PHONY: clean
-clean:
+clean::
 	rm -Rf $(LIBTOCK_BUILDDIR)
 

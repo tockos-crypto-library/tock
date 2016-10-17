@@ -350,7 +350,7 @@ CPPFLAGS += -DSTACK_SIZE=2048
 include $(TOCK_USERLAND_BASE_DIR)/Makefile
 
 .PHONY: clean
-clean:
+clean::
 	rm -rf $(OUTPUT_PATH)
 	rm -f *.jlink
 	rm -f JLink.log
