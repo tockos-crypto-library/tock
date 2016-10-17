@@ -1,9 +1,17 @@
+/// Trait for handling callbacks from ADC module.
 pub trait Client {
+	/// Called when a sample is ready.
     fn sample_done(&self, sample: u16);
 }
 
+/// Simple interface for reading a single ADC sample on any channel.
 pub trait AdcSingle {
+	/// Initialize must be called before taking a sample.
+	/// Returns true on success.
     fn initialize(&self) -> bool;
+
+    /// Request a single ADC sample on a particular channel.
+    /// Returns true on success.
     fn sample(&self, channel: u8) -> bool;
     // fn cancel_sample(&self) -> bool;
 }
