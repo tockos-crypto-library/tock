@@ -4,6 +4,7 @@ TOCK_USERLAND_BASE_DIR ?= $(abspath .)
 TOCK_BASE_DIR ?= $(abspath ../)
 BUILDDIR ?= $(abspath .)
 TOCK_BOARD ?= storm
+TOCK_BOARD_DIR ?= $(TOCK_BASE_DIR)/board/$(TOCK_BOARD)
 TOCK_ARCH ?= cortex-m4
 LIBTOCK ?= $(TOCK_USERLAND_BASE_DIR)/libtock/build/$(TOCK_ARCH)/libtock.a
 
@@ -68,7 +69,7 @@ $(BUILDDIR)/app.bin: $(BUILDDIR)/app.elf | $(BUILDDIR)
 
 # for programming individual apps, include platform app makefile
 #	conditionally included in case it doesn't exist for a board
--include $(TOCK_BASE_DIR)/boards/$(TOCK_BOARD)/Makefile-app
+-include $(TOCK_BOARD_DIR)/Makefile-app
 
 
 
@@ -102,4 +103,8 @@ endif
 
 #########################################################################################
 # Include dependency rules for picking up header changes (by convention at bottom of makefile)
--include $(OBJS:.o=.d)
+
+# TODO(Pat) Okay, this was the root of the problem, think about
+# this at some point
+OBJS_NO_ARCHIVES=$(filter %.o,$(OBJS))
+-include $(OBJS_NO_ARCHIVES:.o=.d)
