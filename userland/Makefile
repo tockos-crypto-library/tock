@@ -19,7 +19,7 @@ CC := $(TOOLCHAIN)-gcc
 CXX := $(TOOLCHAIN)-g++
 # n.b. make convention is that CPPFLAGS are shared for C and C++ sources
 # [CFLAGS is C only, CXXFLAGS is C++ only]
-CPPFLAGS += -I$(TOCK_USERLAND_BASE_DIR)/libtock -g -mcpu=$(TOCK_ARCH) -mthumb -mfloat-abi=soft
+CPPFLAGS += -std=gnu11 -I$(TOCK_USERLAND_BASE_DIR)/libtock -g -mcpu=$(TOCK_ARCH) -mthumb -mfloat-abi=soft
 CPPFLAGS += \
 	    -fdata-sections -ffunction-sections\
 	    -Wall\
