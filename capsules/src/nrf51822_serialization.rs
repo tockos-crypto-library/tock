@@ -125,7 +125,7 @@ impl<'a, U: UART> Driver for Nrf51822Serialization<'a, U> {
                         // can't start receiving until DMA has been set up
                         //  we'll start here when subscribe is first called
                         self.rx_buffer.take().map(|buffer| {
-                            self.uart.receive_automatic(buffer, 20);
+                            self.uart.receive_automatic(buffer, 250);
                         });
 
                         App {
@@ -236,7 +236,7 @@ impl<'a, U: UART> Client for Nrf51822Serialization<'a, U> {
 
         // restart the uart receive
         self.rx_buffer.take().map(|buffer| {
-            self.uart.receive_automatic(buffer, 22);
+            self.uart.receive_automatic(buffer, 250);
         });
     }
 }
