@@ -45,8 +45,9 @@ impl Wdt {
         }
 
         let control = (1 << 16) | // Clock enable
-                      (13 << 8) | // Set PSEL to 13, 500 ms watchdog period
+                      (15 << 8) | // Set PSEL to 13, 570 ms watchdog period
                       (1 << 7)  | // Flash calibration done (set to default)
+                      (1 << 1)  | // Disable after reset
                       (1 << 0);   // Enable
 
         // Need to write twice for it to work
