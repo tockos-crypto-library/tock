@@ -2,6 +2,7 @@ use core::cell::Cell;
 use core::mem;
 use kernel::common::volatile_cell::VolatileCell;
 use pm::{self, Clock, PBDClock};
+use kernel::hil;
 
 
 #[repr(C, packed)]
@@ -34,7 +35,7 @@ impl Wdt {
         }
     }
 
-    pub fn start(&self) {
+    fn start(&self) {
         let regs: &mut WdtRegisters = unsafe { mem::transmute(self.registers) };
 
         self.enabled.set(true);
@@ -53,7 +54,7 @@ impl Wdt {
         regs.cr.set((0xAA << 24) | control);
     }
 
-    pub fn stop(&self) {
+    fn stop(&self) {
         let regs: &mut WdtRegisters = unsafe { mem::transmute(self.registers) };
 
         // Set enable bit (bit 0) to 0 to disable
@@ -70,11 +71,25 @@ impl Wdt {
         self.enabled.set(false);
     }
 
-    pub fn tickle(&self) {
+    fn tickle(&self) {
         let regs: &mut WdtRegisters = unsafe { mem::transmute(self.registers) };
 
         // Need to write the WDTCLR bit twice for it to work
         regs.clr.set((0x55 << 24) | (1 << 0));
         regs.clr.set((0xAA << 24) | (1 << 0));
+    }
+}
+
+impl hil::watchdog::Watchdog for Wdt {
+    fn start(&self) {
+        self.start();
+    }
+
+    fn stop(&self) {
+        self.stop();
+    }
+
+    fn tickle(&self) {
+        self.tickle();
     }
 }
