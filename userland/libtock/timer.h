@@ -42,6 +42,8 @@ int timer_stop();
  */
 void delay_ms(uint32_t ms);
 
+unsigned int timer_read();
+
 #ifdef __cplusplus
 }
 #endif
