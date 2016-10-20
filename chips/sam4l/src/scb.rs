@@ -25,7 +25,7 @@ struct ScbRegisters {
     cpacr: VolatileCell<u32>,
 }
 
-const SCB_BASE: isize = 0xE000ED00;
+const SCB_BASE: usize = 0xE000ED00;
 
 static mut scb: *mut ScbRegisters = SCB_BASE as *mut ScbRegisters;
 
