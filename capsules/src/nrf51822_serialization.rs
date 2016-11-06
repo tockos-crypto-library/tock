@@ -58,6 +58,9 @@ impl<'a, U: UARTAdvanced> Nrf51822Serialization<'a, U> {
             PA[12].enable();
             PA[12].enable_output();
             PA[12].set();
+            PC[09].enable();
+            PC[09].enable_output();
+            PC[09].set();
         }
     }
 }
@@ -218,6 +221,10 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
 
         self.rx_buffer.replace(buffer);
 
+        // *** ORIGINAL MAP VERSION ***
+        // map(): 14.63 us
+        // rx_buffer.map(): 3.6 us
+        // map's });: 22.04 us
         unsafe {
             PA[16].clear();
         }
@@ -234,11 +241,17 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
                 }
 
                 // copy over data to app buffer
+                unsafe {
+                    PC[09].clear();
+                }
                 self.rx_buffer.map(|buffer| {
                     for idx in 0..max_len {
                         rb.as_mut()[idx] = buffer[idx];
                     }
                 });
+                unsafe {
+                    PC[09].set();
+                }
 
                 appst.callback.as_mut().map(|cb| {
                     // send the whole darn buffer to the serialization layer
@@ -254,6 +267,59 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
         unsafe {
             PA[12].set();
         }
+
+        // *** TAKE REPLACE VERSION ***
+        // is_some(), take, & unwrap: 5.31 us
+        // rx_buffer.map(): 3.61 us
+        // replace(): 22.12 us
+        /*
+        unsafe {
+            PA[16].clear();
+        }
+        if self.app.is_some() {
+            let mut appst = self.app.take().unwrap();
+            unsafe {
+                PA[16].set();
+            }
+
+            appst.rx_buffer = appst.rx_buffer.take().map(|mut rb| {
+
+                // figure out length to copy
+                let mut max_len = rx_len;
+                if rb.len() < rx_len {
+                    max_len = rb.len();
+                }
+
+                // copy over data to app buffer
+                unsafe {
+                    PC[09].clear();
+                }
+                self.rx_buffer.map(|buffer| {
+                    for idx in 0..max_len {
+                        rb.as_mut()[idx] = buffer[idx];
+                    }
+                });
+                unsafe {
+                    PC[09].set();
+                }
+
+                appst.callback.as_mut().map(|cb| {
+                    // send the whole darn buffer to the serialization layer
+                    cb.schedule(4, rx_len, 0);
+                });
+
+                rb
+            });
+
+            unsafe {
+                PA[12].clear();
+            }
+            self.app.replace(appst);
+            unsafe {
+                PA[12].set();
+            }
+        }
+        */
 
         // restart the uart receive
         self.rx_buffer.take().map(|buffer| {
