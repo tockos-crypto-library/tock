@@ -266,6 +266,14 @@ unsafe fn set_pin_primary_functions() {
 
     // P2       -- GPIO Pin
     PA[16].configure(None);
+    PA[16].enable();
+    PA[16].enable_output();
+    PA[16].clear();
+    PA[16].set();
+    PA[16].clear();
+    PA[16].set();
+    PA[16].clear();
+    PA[16].set();
     // P3       -- GPIO Pin
     PA[12].configure(None);
     // P4       -- GPIO Pin

@@ -15,6 +15,7 @@ version = "0.1.0"
 dependencies = [
  "kernel 0.1.0",
  "rust-libcore 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sam4l 0.1.0",
 ]
 
 [[package]]

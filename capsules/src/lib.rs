@@ -2,6 +2,7 @@
 #![no_std]
 
 extern crate kernel;
+extern crate sam4l;
 
 pub mod button;
 pub mod console;

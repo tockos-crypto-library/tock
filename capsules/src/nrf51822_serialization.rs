@@ -2,6 +2,8 @@ use kernel::{AppId, Callback, AppSlice, Driver, Shared};
 use kernel::common::take_cell::TakeCell;
 use kernel::hil::uart::{self, UARTAdvanced, Client};
 
+use sam4l::gpio::{PA, PC};
+
 ///
 /// Nrf51822Serialization is the kernel-level driver that provides
 /// the UART API that the nRF51822 serialization library requires.
@@ -49,6 +51,14 @@ impl<'a, U: UARTAdvanced> Nrf51822Serialization<'a, U> {
             parity: uart::Parity::Even,
             hw_flow_control: true,
         });
+        unsafe {
+            PA[16].enable();
+            PA[16].enable_output();
+            PA[16].set();
+            PA[12].enable();
+            PA[12].enable_output();
+            PA[12].set();
+        }
     }
 }
 
@@ -208,7 +218,13 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
 
         self.rx_buffer.replace(buffer);
 
+        unsafe {
+            PA[16].clear();
+        }
         self.app.map(|appst| {
+            unsafe {
+                PA[16].set();
+            }
             appst.rx_buffer = appst.rx_buffer.take().map(|mut rb| {
 
                 // figure out length to copy
@@ -231,7 +247,13 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
 
                 rb
             });
+            unsafe {
+                PA[12].clear();
+            }
         });
+        unsafe {
+            PA[12].set();
+        }
 
         // restart the uart receive
         self.rx_buffer.take().map(|buffer| {

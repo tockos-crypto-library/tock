@@ -6,3 +6,4 @@ authors = ["Tock Project Developers <tock-dev@googlegroups.com>"]
 [dependencies]
 rust-libcore = "*"
 kernel = { path = "../kernel" }
+sam4l = { path = "../chips/sam4l" }
