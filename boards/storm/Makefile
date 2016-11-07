@@ -26,6 +26,7 @@ doc:
 .PHONY: target/sam4l/release/storm
 target/sam4l/release/storm:
 	@cargo build --release --target=sam4l.json
+	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > target/sam4l/release/storm.lst
 	@$(SIZE) $@
 
 .PHONY: target/sam4l/debug/storm

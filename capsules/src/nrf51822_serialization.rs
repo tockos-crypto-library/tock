@@ -3,6 +3,7 @@ use kernel::common::take_cell::TakeCell;
 use kernel::hil::uart::{self, UARTAdvanced, Client};
 
 use sam4l::gpio::{PA, PC};
+use instrumented_takecell::InstrumentedTakeCell;
 
 ///
 /// Nrf51822Serialization is the kernel-level driver that provides
@@ -26,7 +27,7 @@ pub static mut READ_BUF: [u8; 600] = [0; 600];
 // application.
 pub struct Nrf51822Serialization<'a, U: UARTAdvanced + 'a> {
     uart: &'a U,
-    app: TakeCell<App>,
+    app: InstrumentedTakeCell<App>,
     tx_buffer: TakeCell<&'static mut [u8]>,
     rx_buffer: TakeCell<&'static mut [u8]>,
 }
@@ -38,7 +39,7 @@ impl<'a, U: UARTAdvanced> Nrf51822Serialization<'a, U> {
                -> Nrf51822Serialization<'a, U> {
         Nrf51822Serialization {
             uart: uart,
-            app: TakeCell::empty(),
+            app: InstrumentedTakeCell::empty(),
             tx_buffer: TakeCell::new(tx_buffer),
             rx_buffer: TakeCell::new(rx_buffer),
         }
@@ -62,6 +63,38 @@ impl<'a, U: UARTAdvanced> Nrf51822Serialization<'a, U> {
             PC[09].enable_output();
             PC[09].set();
         }
+    }
+
+    #[inline(never)]
+    fn inside_receive_closure(&self, appst: &mut App, rx_len: usize) {
+        appst.rx_buffer = appst.rx_buffer.take().map(|mut rb| {
+
+            // figure out length to copy
+            let mut max_len = rx_len;
+            if rb.len() < rx_len {
+                max_len = rb.len();
+            }
+
+            // copy over data to app buffer
+            unsafe {
+                PC[09].clear();
+            }
+            self.rx_buffer.map(|buffer| {
+                for idx in 0..max_len {
+                    rb.as_mut()[idx] = buffer[idx];
+                }
+            });
+            unsafe {
+                PC[09].set();
+            }
+
+            appst.callback.as_mut().map(|cb| {
+                // send the whole darn buffer to the serialization layer
+                cb.schedule(4, rx_len, 0);
+            });
+
+            rb
+        });
     }
 }
 
@@ -225,6 +258,7 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
         // map(): 14.63 us
         // rx_buffer.map(): 3.6 us
         // map's });: 22.04 us
+        /*
         unsafe {
             PA[16].clear();
         }
@@ -267,6 +301,40 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
         unsafe {
             PA[12].set();
         }
+        */
+
+        // *** MAP FUNCTION VERSION ***
+        // (easier to trace for assembly)
+        // map(): 14.76 us
+        // rx_buffer.map(): 3.72 us
+        // map's });: 21.64 us
+        /*
+        unsafe {
+            PA[16].clear();
+        }
+        self.app.map(|appst| {
+            unsafe {
+                PA[16].set();
+            }
+            self.inside_receive_closure(appst, rx_len);
+            unsafe {
+                PA[12].clear();
+            }
+        });
+        unsafe {
+            PA[12].set();
+        }
+        */
+
+        // *** INSTRUMENTED MAP FUNCTION VERSION ***
+        // self.take(): 10.49 us
+        // maybe_val.map(): 4.57 us
+        // closure(): 9.82 us
+        // replace(): 22.22 us
+        // maybe_val.map's )};: 1.33 us
+        self.app.instrumented_map(|appst| {
+            self.inside_receive_closure(appst, rx_len);
+        });
 
         // *** TAKE REPLACE VERSION ***
         // is_some(), take, & unwrap: 5.31 us
@@ -326,4 +394,5 @@ impl<'a, U: UARTAdvanced> Client for Nrf51822Serialization<'a, U> {
             self.uart.receive_automatic(buffer, 250);
         });
     }
+
 }
