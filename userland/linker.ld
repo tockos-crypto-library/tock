@@ -2,7 +2,7 @@ ENTRY(_start)
 
 MEMORY {
     FLASH (rx) : ORIGIN = 0x80000000, LENGTH = 0x00080000
-    SRAM (RWX) : ORIGIN = 0x00000000, LENGTH = 0x00002000
+    SRAM (RWX) : ORIGIN = 0x00000000, LENGTH = 0x0008000
 }
 
 SECTIONS {
@@ -22,6 +22,23 @@ SECTIONS {
         KEEP (*(.syscalls))
         _etext = .;
     } > FLASH =0xFF
+
+/* ARM Exception support
+ *
+ * This contains compiler-generated support for unwinding the stack,
+ * consisting of key-value pairs of function addresses and information on
+ * how to unwind stack frames.
+ * https://wiki.linaro.org/KenWerner/Sandbox/libunwind?action=AttachFile&do=get&target=libunwind-LDS.pdf
+ *
+ * .ARM.exidx is sorted, so has to go in its own output section.
+ */
+    PROVIDE_HIDDEN (__exidx_start = .);
+    .ARM.exidx :
+    {
+      /* (C++) Index entries for section unwinding */
+      *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+    } > FLASH
+    PROVIDE_HIDDEN (__exidx_end = .);
 
 /* Global Offset Table */
     .got :
