@@ -52,12 +52,10 @@ void _exit(int __status)
 {
   while(666) {}
 }
-/*
 void abort()
 {
   while(666) {}
 }
-*/
 int _getpid()
 {
   return 0;
