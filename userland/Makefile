@@ -46,12 +46,6 @@ $(BUILDDIR)/%.o: %.cc | $(BUILDDIR)
 	$(TRACE_CXX)
 	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
 
-$(BUILDDIR)/%.o: %.cpp | $(BUILDDIR)
-	$(TRACE_DEP)
-	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MF"$(@:.o=.d)" -MG -MM -MP -MT"$(@:.o=.d)@" -MT"$@" "$<"
-	$(TRACE_CXX)
-	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
-
 LINKER ?= $(TOCK_USERLAND_BASE_DIR)/linker.ld
 
 SIZE := $(TOOLCHAIN)-size
