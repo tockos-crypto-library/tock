@@ -4,7 +4,6 @@ TOCK_USERLAND_BASE_DIR ?= $(abspath .)
 TOCK_BASE_DIR ?= $(abspath ../)
 BUILDDIR ?= $(abspath .)
 TOCK_BOARD ?= storm
-TOCK_BOARD_DIR ?= $(TOCK_BASE_DIR)/board/$(TOCK_BOARD)
 TOCK_ARCH ?= cortex-m4
 LIBTOCK ?= $(TOCK_USERLAND_BASE_DIR)/libtock/build/$(TOCK_ARCH)/libtock.a
 
@@ -20,7 +19,8 @@ CC := $(TOOLCHAIN)-gcc
 CXX := $(TOOLCHAIN)-g++
 # n.b. make convention is that CPPFLAGS are shared for C and C++ sources
 # [CFLAGS is C only, CXXFLAGS is C++ only]
-CPPFLAGS += -std=gnu11 -I$(TOCK_USERLAND_BASE_DIR)/libtock -g -mcpu=$(TOCK_ARCH) -mthumb -mfloat-abi=soft
+CFLAGS   += -std=gnu11
+CPPFLAGS += -I$(TOCK_USERLAND_BASE_DIR)/libtock -g -mcpu=$(TOCK_ARCH) -mthumb -mfloat-abi=soft
 CPPFLAGS += \
 	    -fdata-sections -ffunction-sections\
 	    -Wall\
@@ -40,14 +40,29 @@ $(BUILDDIR)/%.o: %.c | $(BUILDDIR)
 	$(TRACE_CC)
 	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
+$(BUILDDIR)/%.o: %.cc | $(BUILDDIR)
+	$(TRACE_DEP)
+	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MF"$(@:.o=.d)" -MG -MM -MP -MT"$(@:.o=.d)@" -MT"$@" "$<"
+	$(TRACE_CXX)
+	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+$(BUILDDIR)/%.o: %.cpp | $(BUILDDIR)
+	$(TRACE_DEP)
+	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MF"$(@:.o=.d)" -MG -MM -MP -MT"$(@:.o=.d)@" -MT"$@" "$<"
+	$(TRACE_CXX)
+	$(Q)$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+
 LINKER ?= $(TOCK_USERLAND_BASE_DIR)/linker.ld
 
-SIZE?=arm-none-eabi-size
-OBJDUMP?=arm-none-eabi-objdump
-OBJDUMP_FLAGS+= --disassemble-all --source --disassembler-options=force-thumb -C --section-headers
+SIZE := $(TOOLCHAIN)-size
 
 .PHONY:	all
-all:	$(BUILDDIR)/app.bin
+all:	$(BUILDDIR)/app.bin size
+
+.PHONY: size
+size:	$(BUILDDIR)/app.elf
+	@$(SIZE) $<
 
 # Include the libtock makefile. Adds rules that will rebuild library when needed
 include $(TOCK_USERLAND_BASE_DIR)/libtock/Makefile
@@ -57,9 +72,7 @@ $(BUILDDIR):
 
 $(BUILDDIR)/app.elf: $(OBJS) $(TOCK_USERLAND_BASE_DIR)/newlib/libc.a $(LIBTOCK) | $(BUILDDIR)
 	$(TRACE_LD)
-	$(Q)$(CC) -Wl,--gc-sections -Wl,--emit-relocs --entry=_start $(CFLAGS) $(CPPFLAGS) -T $(LINKER) -nostdlib $(OBJS) -Wl,--start-group $(TOCK_USERLAND_BASE_DIR)/newlib/libc.a $(LIBTOCK) -lm -lgcc -Wl,--end-group -o $@
-	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(BUILDDIR)/app.lst
-	@$(SIZE) $@
+	$(Q)$(CC) -Wl,--gc-sections -Wl,--emit-relocs --entry=_start $(CFLAGS) $(CPPFLAGS) -T $(LINKER) -nostdlib $(OBJS) -Wl,--start-group $(TOCK_USERLAND_BASE_DIR)/newlib/libc.a $(TOCK_USERLAND_BASE_DIR)/newlib/libm.a $(LIBTOCK) $(TOCK_USERLAND_BASE_DIR)/libc++/libstdc++.a $(TOCK_USERLAND_BASE_DIR)/libc++/libsupc++.a $(TOCK_USERLAND_BASE_DIR)/libc++/libgcc.a -Wl,--end-group -o $@
 
 $(BUILDDIR)/app.bin: $(BUILDDIR)/app.elf | $(BUILDDIR)
 	$(TRACE_BIN)
@@ -67,7 +80,7 @@ $(BUILDDIR)/app.bin: $(BUILDDIR)/app.elf | $(BUILDDIR)
 
 # for programming individual apps, include platform app makefile
 #	conditionally included in case it doesn't exist for a board
--include $(TOCK_BOARD_DIR)/Makefile-app
+-include $(TOCK_BASE_DIR)/boards/$(TOCK_BOARD)/Makefile-app
 
 
 
