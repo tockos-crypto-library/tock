@@ -80,7 +80,7 @@ $(BUILDDIR)/app.bin: $(BUILDDIR)/app.elf | $(BUILDDIR)
 
 # for programming individual apps, include platform app makefile
 #	conditionally included in case it doesn't exist for a board
--include $(TOCK_BASE_DIR)/boards/$(TOCK_BOARD)/Makefile-app
+-include $(TOCK_BOARD_DIR)/Makefile-app
 
 
 

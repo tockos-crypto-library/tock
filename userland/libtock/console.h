@@ -10,6 +10,7 @@ extern "C" {
 void putstr(const char* str);
 void putnstr(const char* str, size_t len);
 void putnstr_async(const char* str, size_t len, subscribe_cb cb, void* userdata);
+void getauto(char* str, size_t max_len, subscribe_cb cb, void* userdata);
 
 #ifdef __cplusplus
 }
