@@ -141,7 +141,6 @@ pub unsafe fn reset_handler() {
 
     set_pin_primary_functions();
 
-
     // # CONSOLE
 
     let console = static_init!(
@@ -229,6 +228,26 @@ pub unsafe fn reset_handler() {
         capsules::fxos8700_cq::Fxos8700cq::new(fx0_i2c, &mut capsules::fxos8700_cq::BUF),
         288/8);
     fx0_i2c.set_client(fx0);
+
+    // ***** PROBLEM CODE STARTS HERE *** //
+
+    // When the following two lines are uncommented, the NRF will turn on.
+    //
+    // If RTS is high (e.g. miniterm2.py --dtr 0 --rts 0), there will be no output from the sensors
+    // using the sensors app (boards/imix/apps/sensors). With --rts 1 (RTS low), works fine.
+    //sam4l::gpio::PC[17].enable_output();
+    //sam4l::gpio::PC[17].clear();
+
+    // replacing PC[17].clear() with PC[17].set() seems to have no impact, as once enable_output is
+    // called the NRF is enabled (because the pin is low by default) and reverting it doesn't seem
+    // to turn off the power rail.
+
+    // When this for-loop is uncommented, Tock waits about 2 seconds until enabling the sensors. In
+    // this case, running with --rts 0 works _sometimes_. Other times there is a process panic that
+    // looks like a brown-out.
+    //for _ in 0..10000000 {
+    //    ::kernel::support::nop();
+    //}
 
     // Clear sensors enable pin to enable sensor rail
     sam4l::gpio::PC[16].enable_output();
