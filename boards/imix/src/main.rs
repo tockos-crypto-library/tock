@@ -91,6 +91,8 @@ unsafe fn set_pin_primary_functions() {
     PB[03].configure(Some(A));  // AD3         --  ADCIFE AD4
     PB[04].configure(Some(A));  // AD4         --  ADCIFE AD5
     PB[05].configure(Some(A));  // AD5         --  ADCIFE AD6
+    // *** PROBLEM CODE HERE ***//
+    // Comment out the following line to disassociate PB[06] from RTS3
     PB[06].configure(Some(A));  // RTS3        --  USART3 RTS
     PB[07].configure(None);     // NRF RESET   --  GPIO
     PB[09].configure(Some(A));  // RX3         --  USART3 RX
