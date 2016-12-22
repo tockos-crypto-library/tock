@@ -3,7 +3,7 @@ use process;
 
 #[derive(Clone,Copy)]
 pub struct AppId {
-    idx: usize,
+    pub idx: usize,
 }
 
 impl AppId {

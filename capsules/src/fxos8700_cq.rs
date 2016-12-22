@@ -4,7 +4,7 @@
 //! To use readings from the sensor in userland, see FXOS8700CQ.h in libtock.
 
 use core::cell::Cell;
-use kernel::{AppId, Callback, Driver};
+use kernel::{AppId, Callback, Container, Driver};
 use kernel::common::take_cell::TakeCell;
 use kernel::hil::i2c::{I2CDevice, I2CClient, Error};
 
@@ -42,20 +42,38 @@ enum State {
     Deactivating(i16, i16, i16),
 }
 
+pub struct App {
+    callback: Option<Callback>,
+    pending_command: bool,
+    command: usize,
+}
+
+impl Default for App {
+    fn default() -> App {
+        App {
+            callback: None,
+            pending_command: false,
+            command: 0,
+        }
+    }
+}
+
 pub struct Fxos8700cq<'a> {
     i2c: &'a I2CDevice,
     state: Cell<State>,
     buffer: TakeCell<&'static mut [u8]>,
-    callback: Cell<Option<Callback>>,
+    apps: Container<App>,
+    current_app: Cell<Option<AppId>>,
 }
 
 impl<'a> Fxos8700cq<'a> {
-    pub fn new(i2c: &'a I2CDevice, buffer: &'static mut [u8]) -> Fxos8700cq<'a> {
+    pub fn new(i2c: &'a I2CDevice, buffer: &'static mut [u8], container: Container<App>) -> Fxos8700cq<'a> {
         Fxos8700cq {
             i2c: i2c,
             state: Cell::new(State::Enabling),
             buffer: TakeCell::new(buffer),
-            callback: Cell::new(None),
+            apps: container,
+            current_app: Cell::new(None),
         }
     }
 
@@ -103,7 +121,50 @@ impl<'a> I2CClient for Fxos8700cq<'a> {
                 self.i2c.disable();
                 self.state.set(State::Disabled);
                 self.buffer.replace(buffer);
-                self.callback.get().map(|mut cb| cb.schedule(x as usize, y as usize, z as usize));
+
+                // Notify the current app of the reading
+                self.current_app.get().map(|appid| {
+                    self.current_app.set(None);
+                    self.apps.enter(appid, |app, _| {
+                        app.pending_command = false;
+                        app.callback.map(|mut cb| {
+                            cb.schedule(x as usize, y as usize, z as usize);
+                        });
+                    });
+                });
+
+                // Check to see if there are any pending operations
+                let mut running_command = false;
+                if self.current_app.get().is_none() {
+                    for cntr in self.apps.iter() {
+                        let started_command = cntr.enter(|app, _| {
+                            if app.pending_command {
+                                app.pending_command = false;
+                                self.current_app.set(Some(app.appid()));
+
+                                panic!("why is command 4645?? {} {}", app.appid().idx, app.command);
+
+                                self.start_read_accel();
+                                true
+
+                                // match app.command {
+                                //     0 => {
+
+                                //         self.start_read_accel();
+                                //         true
+                                //     }
+                                //     _ => false
+                                // }
+                            } else {
+                                false
+                            }
+                        });
+                        if started_command {
+                            running_command = true;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -113,18 +174,31 @@ impl<'a> Driver for Fxos8700cq<'a> {
     fn subscribe(&self, subscribe_num: usize, callback: Callback) -> isize {
         match subscribe_num {
             0 => {
-                self.callback.set(Some(callback));
-                0
+                self.apps.enter(callback.app_id(), |app, _| {
+                    app.callback = Some(callback);
+                    0
+                })
+                .unwrap_or(-1)
             }
             _ => -1,
         }
     }
 
-    fn command(&self, command_num: usize, _arg1: usize, _: AppId) -> isize {
+    fn command(&self, command_num: usize, _arg1: usize, appid: AppId) -> isize {
         match command_num {
             0 => {
-                // read acceleration
-                self.start_read_accel();
+                self.apps.enter(appid, |app, _| {
+                    app.pending_command = true;
+                    app.command = command_num;
+
+                    // Check so see if we are doing something. If not,
+                    // go ahead and do this command. If so, this is queued
+                    // and will be run when the pending command completes.
+                    if self.current_app.get().is_none() {
+                        self.current_app.set(Some(appid));
+                        self.start_read_accel();
+                    }
+                });
                 0
             }
             _ => -1,
