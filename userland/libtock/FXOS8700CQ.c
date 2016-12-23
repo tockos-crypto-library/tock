@@ -26,15 +26,21 @@ double FXOS8700CQ_read_accel_mag() {
 
   err = FXOS8700CQ_subscribe(FXOS8700CQ_cb, (void*)(&result));
   if (err < 0) {
+    printf("failed1\n");
     return err;
   }
 
+  printf("ramstart\n");
+
   err = FXOS8700CQ_start_accel_reading();
-  if (err < 0) {
+    if (err == -10) printf("pend_ram\n");
+  else if (err < 0) {
+    printf("failed2\n");
     return err;
   }
 
   yield_for(&result.fired);
+  printf("pend_ramdone\n");
 
   return sqrt(result.x * result.x + result.y * result.y + result.z * result.z);
 }
@@ -51,14 +57,25 @@ int FXOS8700CQ_read_acceleration_sync(int* x, int* y, int* z) {
     int err;
     res.fired = false;
 
+    printf("ps\n");
+
     err = FXOS8700CQ_subscribe(FXOS8700CQ_cb, (void*) &res);
-    if (err < 0) return err;
+    if (err < 0) {
+    printf("failed3\n");
+      return err;
+    }
 
     err = FXOS8700CQ_start_accel_reading();
-    if (err < 0) return err;
+    if (err == -10) printf("pend\n");
+    else if (err < 0) {
+    printf("failed4\n");
+
+      return err;
+    }
 
     // Wait for the callback.
     yield_for(&res.fired);
+    printf("pd\n");
 
     *x = res.x;
     *y = res.y;

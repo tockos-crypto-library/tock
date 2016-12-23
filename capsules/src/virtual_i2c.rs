@@ -12,7 +12,9 @@ pub struct MuxI2C<'a> {
 
 impl<'a> I2CHwMasterClient for MuxI2C<'a> {
     fn command_complete(&self, buffer: &'static mut [u8], error: Error) {
-        self.inflight.take().map(move |device| {
+        self.inflight.take().map_or_else(||{
+            panic!("cc why");
+        }, move |device| {
             device.command_complete(buffer, error);
         });
         self.do_next_op();
@@ -49,7 +51,10 @@ impl<'a> MuxI2C<'a> {
         if self.inflight.is_none() {
             let mnode = self.devices.iter().find(|node| node.operation.get() != Op::Idle);
             mnode.map(|node| {
-                node.buffer.take().map(|buf| {
+                self.inflight.replace(node);
+                node.buffer.take().map_or_else( || {
+                    panic!("virt no buf");
+                }, |buf| {
                     match node.operation.get() {
                         Op::Write(len) => self.i2c.write(node.addr, buf, len),
                         Op::Read(len) => self.i2c.read(node.addr, buf, len),
@@ -60,7 +65,6 @@ impl<'a> MuxI2C<'a> {
                     }
                 });
                 node.operation.set(Op::Idle);
-                self.inflight.replace(node);
             });
         }
     }
@@ -105,7 +109,9 @@ impl<'a> I2CDevice<'a> {
 
 impl<'a> I2CClient for I2CDevice<'a> {
     fn command_complete(&self, buffer: &'static mut [u8], error: Error) {
-        self.client.get().map(move |client| {
+        self.client.get().map_or_else(|| {
+            panic!("waaa client");
+        }, move |client| {
             client.command_complete(buffer, error);
         });
     }

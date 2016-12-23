@@ -257,11 +257,17 @@ impl I2CHw {
                 write_volatile(&mut regs.command, 0);
                 write_volatile(&mut regs.next_command, 0);
 
-                err.map(|err| {
+                err.map_or_else(||{
+                    panic!("no err");
+                }, |err| {
                     // enable, reset, disable
                     write_volatile(&mut regs.control, 0x1 << 0);
                     write_volatile(&mut regs.control, 0x1 << 7);
                     write_volatile(&mut regs.control, 0x1 << 1);
+
+                    if self.master_client.is_none() {
+                        panic!("noooo mastercl");
+                    }
 
                     self.master_client.map(|client| {
                         let buf = match self.dma.take() {
@@ -272,7 +278,9 @@ impl I2CHw {
                             }
                             None => None,
                         };
-                        buf.map(|buf| {
+                        buf.map_or_else(|| {
+                            panic!("no client");
+                        }, |buf| {
                             client.command_complete(buf, err);
                         });
                     });
@@ -285,6 +293,9 @@ impl I2CHw {
                                | (1 << 8)    // ANAK   - Address not ACKd
                                | (1 << 9)    // DNAK   - Data not ACKd
                                | (1 << 10)); // ARBLST - Abitration lost
+                if self.dma.is_none() {
+                    panic!("nodma");
+                }
                 self.dma.map(|dma| {
                     let buf = dma.abort_xfer().unwrap();
                     dma.prepare_xfer(dma_periph, buf, len);

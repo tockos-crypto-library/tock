@@ -78,7 +78,9 @@ impl<'a> Fxos8700cq<'a> {
     }
 
     fn start_read_accel(&self) {
-        self.buffer.take().map(|buf| {
+        self.buffer.take().map_or_else(|| {
+            panic!("no buffs");
+        }, |buf| {
             self.i2c.enable();
             buf[0] = Registers::WhoAmI as u8;
             self.i2c.write_read(buf, 1, 1);
@@ -123,11 +125,15 @@ impl<'a> I2CClient for Fxos8700cq<'a> {
                 self.buffer.replace(buffer);
 
                 // Notify the current app of the reading
-                self.current_app.get().map(|appid| {
+                self.current_app.get().map_or_else(|| {
+                    panic!("no current app!!");
+                }, |appid| {
                     self.current_app.set(None);
                     self.apps.enter(appid, |app, _| {
-                        app.pending_command = false;
-                        app.callback.map(|mut cb| {
+                        // app.pending_command = false;
+                        app.callback.map_or_else(|| {
+                            panic!("no bc");
+                        }, |mut cb| {
                             cb.schedule(x as usize, y as usize, z as usize);
                         });
                     });
@@ -142,19 +148,19 @@ impl<'a> I2CClient for Fxos8700cq<'a> {
                                 app.pending_command = false;
                                 self.current_app.set(Some(app.appid()));
 
-                                panic!("why is command 4645?? {} {}", app.appid().idx, app.command);
+                                // panic!("why is command 4645?? {} {}", app.appid().idx, app.command);
 
-                                self.start_read_accel();
-                                true
+                                // self.start_read_accel();
+                                // true
 
-                                // match app.command {
-                                //     0 => {
+                                match app.command {
+                                    0 => {
 
-                                //         self.start_read_accel();
-                                //         true
-                                //     }
-                                //     _ => false
-                                // }
+                                        self.start_read_accel();
+                                        true
+                                    }
+                                    _ => false
+                                }
                             } else {
                                 false
                             }
@@ -164,6 +170,11 @@ impl<'a> I2CClient for Fxos8700cq<'a> {
                             break;
                         }
                     }
+                    // if !running_command {
+                    //     panic!("no pending command");
+                    // }
+                } else {
+                    panic!("how is there a current app already?");
                 }
             }
         }
@@ -185,23 +196,25 @@ impl<'a> Driver for Fxos8700cq<'a> {
     }
 
     fn command(&self, command_num: usize, _arg1: usize, appid: AppId) -> isize {
-        match command_num {
-            0 => {
-                self.apps.enter(appid, |app, _| {
-                    app.pending_command = true;
-                    app.command = command_num;
-
-                    // Check so see if we are doing something. If not,
-                    // go ahead and do this command. If so, this is queued
-                    // and will be run when the pending command completes.
-                    if self.current_app.get().is_none() {
-                        self.current_app.set(Some(appid));
+        self.apps.enter(appid, |app, _| {
+            // Check so see if we are doing something. If not,
+            // go ahead and do this command. If so, this is queued
+            // and will be run when the pending command completes.
+            if self.current_app.get().is_none() {
+                self.current_app.set(Some(appid));
+                match command_num {
+                    0 => {
                         self.start_read_accel();
+                        0
                     }
-                });
-                0
+                    _ => -1,
+                }
+            } else {
+                // panic!("woah");
+                app.pending_command = true;
+                app.command = command_num;
+                -10
             }
-            _ => -1,
-        }
+        }).unwrap_or(-1)
     }
 }

@@ -26,7 +26,7 @@ int main() {
     if (y == largest) led_on(1); else led_off(1);
     if (z == largest) led_on(2); else led_off(2);
 
-	delay_ms(200);
+	// delay_ms(50);
   }
 
   return 0;

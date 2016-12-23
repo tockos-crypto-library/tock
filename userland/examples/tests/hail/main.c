@@ -34,9 +34,9 @@ void timer_fired(__attribute__ ((unused)) int arg0,
   int a0, a1, a2, a3, a4, a5;
   int d0, d1, d6, d7;
 
-  si7021_get_temperature_humidity_sync(&temp, &humi);
+  // si7021_get_temperature_humidity_sync(&temp, &humi);
   accel_mag = FXOS8700CQ_read_accel_mag();
-  light = isl29035_read_light_intensity();
+  // light = isl29035_read_light_intensity();
 
   // A0-A5
   a0 = (adc_read_single_sample(0) * 3300) / 4095;
