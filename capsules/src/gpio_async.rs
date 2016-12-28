@@ -22,44 +22,29 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> GPIOAsync<'a, Port> {
 
     fn configure_input_pin(&self, port: usize, pin: usize, config: usize) -> isize {
         let ports = self.ports.as_ref();
-        match config {
-            0 => {
-                ports[port].enable_input(pin, hil::gpio::InputMode::PullUp)
-            }
-
-            1 => {
-                ports[port].enable_input(pin, hil::gpio::InputMode::PullDown)
-            }
-
-            2 => {
-                ports[port].enable_input(pin, hil::gpio::InputMode::PullNone)
-            }
-
-            _ => -1,
+        if config > 2 {
+            return -1;
         }
+        let mode = match config {
+            0 => hil::gpio::InputMode::PullUp,
+            1 => hil::gpio::InputMode::PullDown,
+            _ => hil::gpio::InputMode::PullNone,
+        }
+        ports[port].enable_input(pin, mode)
     }
 
-    // fn configure_interrupt(&self, pin_num: usize, config: usize) -> isize {
-    //     let pins = self.pins.as_ref();
-    //     match config {
-    //         0 => {
-    //             pins[pin_num].enable_interrupt(pin_num, InterruptMode::Change);
-    //             0
-    //         }
-
-    //         1 => {
-    //             pins[pin_num].enable_interrupt(pin_num, InterruptMode::RisingEdge);
-    //             0
-    //         }
-
-    //         2 => {
-    //             pins[pin_num].enable_interrupt(pin_num, InterruptMode::FallingEdge);
-    //             0
-    //         }
-
-    //         _ => -1,
-    //     }
-    // }
+    fn configure_interrupt(&self, port: usize, pin: usize, config: usize) -> isize {
+        let ports = self.ports.as_ref();
+        if config > 2 {
+            return -1;
+        }
+        let mode = match config {
+            0 => hil::gpio::InterruptMode::RisingEdge,
+            1 => hil::gpio::InterruptMode::FallingEdge,
+            _ => hil::gpio::InterruptMode::EitherEdge,
+        }
+        ports[port].enable_interrupt(pin, mode)
+    }
 }
 
 impl<'a, Port: hil::gpio_async::GPIOAsyncPort> hil::gpio_async::Client for GPIOAsync<'a, Port> {
@@ -92,112 +77,44 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> Driver for GPIOAsync<'a, Port> {
     fn command(&self, command_num: usize, data: usize, _: AppId) -> isize {
         let port = data & 0xFF;
         let pin = (data >> 8) & 0xFF;
+        let other = (data >> 16) & 0xFFFF;
         let ports = self.ports.as_ref();
+
+        // On any command other than 0, we check for ports length.
+        if command_num != 0 && port >= ports.len() {
+            return -1;
+        }
 
         match command_num {
             // How many ports
             0 => ports.len() as isize,
+
             // enable output
-            1 => {
-                if port >= ports.len() {
-                    -1
-                } else {
-                    ports[port].enable_output(pin)
-                }
-            }
+            1 => ports[port].enable_output(pin),
 
             // set pin
-            2 => {
-                if port >= ports.len() {
-                    -1
-                } else {
-                    ports[port].set(pin)
-                }
-            }
+            2 => ports[port].set(pin),
 
             // clear pin
-            3 => {
-                if port >= ports.len() {
-                    -1
-                } else {
-                    ports[port].clear(pin)
-                }
-            }
+            3 => ports[port].clear(pin),
 
             // toggle pin
-            4 => {
-                if port >= ports.len() {
-                    -1
-                } else {
-                    ports[port].toggle(pin)
-                }
-            }
+            4 => ports[port].toggle(pin),
 
             // enable and configure input
-            5 => {
-                // XXX: this is clunky
-                // data == ((pin_config << 8) | pin)
-                // this allows two values to be passed into a command interface
-                let pin_num = pin & 0xFF;
-                let pin_config = (pin >> 8) & 0xFF;
-                if port >= ports.len() {
-                    -1
-                } else {
-                    self.configure_input_pin(port, pin_num, pin_config)
-                }
-            }
+            5 => self.configure_input_pin(port, pin, other & 0xFF),
 
             // read input
-            6 => {
-                if port >= ports.len() {
-                    -1
-                } else {
-                    ports[port].read(pin)
-                }
-            }
+            6 => ports[port].read(pin),
 
-            // enable and configure interrupts on pin, also sets pin as input
-            // (no affect or reliance on registered callback)
-            7 => {
-                // // TODO(brghena): this is clunky
-                // // data == ((irq_config << 16) | (pin_config << 8) | pin)
-                // // this allows three values to be passed into a command interface
-                // let pin_num = data & 0xFF;
-                // let pin_config = (data >> 8) & 0xFF;
-                // let irq_config = (data >> 16) & 0xFF;
-                // if pin_num >= ports.len() {
-                //     -1
-                // } else {
-                //     let mut err_code = self.configure_input_pin(pin_num, pin_config);
-                //     if err_code == 0 {
-                //         err_code = self.configure_interrupt(pin_num, irq_config);
-                //     }
-                //     err_code
-                // }
-                0
-            }
+            // enable interrupt on pin
+            7 => self.configure_interrupt(port, pin, other & 0xFF),
 
-            // disable interrupts on pin, also disables pin
-            // (no affect or reliance on registered callback)
-            8 => {
-                // if data >= ports.len() {
-                //     -1
-                // } else {
-                //     ports[data].disable_interrupt();
-                //     ports[data].disable();
-                //     0
-                // }
-                0
-            }
+            // disable interrupt on pin
+            8 => ports[port].disable_interrupt(pin),
 
             // disable pin
-            9 => {
-                if port >= ports.len() {
-                    -1
-                } else {
-                    ports[port].disable(pin)
-                }
-            }
+            9 => ports[port].disable(pin),
 
             // default
             _ => -1,

@@ -500,8 +500,7 @@ impl<'a> hil::gpio_async::GPIOAsyncPort for MCP23008<'a> {
         }
     }
 
-    fn enable_interrupt(&self, pin: usize, _client_data: usize,
-                        mode: hil::gpio::InterruptMode) -> isize {
+    fn enable_interrupt(&self, pin: usize, mode: hil::gpio::InterruptMode) -> isize {
         let main_interrupt_enabled = self.enable_host_interrupt();
         if main_interrupt_enabled < 0 {
             return -1;
