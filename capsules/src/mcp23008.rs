@@ -9,7 +9,7 @@ use kernel::hil;
 use kernel::returncode::ReturnCode;
 
 // Buffer to use for I2C messages
-pub static mut BUFFER: [u8; 9] = [0; 9];
+pub static mut BUFFER: [u8; 7] = [0; 7];
 
 #[allow(dead_code)]
 enum Registers {
@@ -31,17 +31,18 @@ enum Registers {
 enum State {
     Idle,
 
-    SelectIoDir,
-    ReadIoDir,
-    SelectGpPu,
-    ReadGpPu,
-    SetGpPu,
-    SelectGpio,
-    ReadGpio,
-    SelectGpioToggle,
-    ReadGpioToggle,
-    SelectGpioRead,
-    ReadGpioRead,
+    // Setup input/output
+    SelectIoDir(u8, Direction),
+    ReadIoDir(u8, Direction),
+    SelectGpPu(u8, bool),
+    ReadGpPu(u8, bool),
+    SetGpPu(u8),
+    SelectGpio(u8, PinState),
+    ReadGpio(u8, PinState),
+    SelectGpioToggle(u8),
+    ReadGpioToggle(u8),
+    SelectGpioRead(u8),
+    ReadGpioRead(u8),
     EnableInterruptSettings,
     ReadInterruptSetup,
     ReadInterruptValues,
@@ -50,11 +51,13 @@ enum State {
     Done,
 }
 
+#[derive(Clone,Copy,PartialEq)]
 enum Direction {
     Input = 0x01,
     Output = 0x00,
 }
 
+#[derive(Clone,Copy,PartialEq)]
 enum PinState {
     High = 0x01,
     Low = 0x00,
@@ -106,16 +109,11 @@ impl<'a> MCP23008<'a> {
 
     fn set_direction(&self, pin_number: u8, direction: Direction) -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             buffer[0] = Registers::IoDir as u8;
-            // Save settings in buffer so they automatically get passed to
-            // state machine.
-            buffer[1] = pin_number;
-            buffer[2] = direction as u8;
             self.i2c.write(buffer, 1);
-            self.state.set(State::SelectIoDir);
+            self.state.set(State::SelectIoDir(pin_number, direction));
 
             ReturnCode::SUCCESS
         })
@@ -124,16 +122,11 @@ impl<'a> MCP23008<'a> {
     /// Set the pull-up on the pin also configure it to be an input.
     fn configure_pullup(&self, pin_number: u8, enabled: bool) -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             buffer[0] = Registers::IoDir as u8;
-            // Save settings in buffer so they automatically get passed to
-            // state machine.
-            buffer[7] = pin_number;
-            buffer[8] = enabled as u8;
             self.i2c.write(buffer, 1);
-            self.state.set(State::SelectGpPu);
+            self.state.set(State::SelectGpPu(pin_number, enabled));
 
             ReturnCode::SUCCESS
         })
@@ -141,16 +134,11 @@ impl<'a> MCP23008<'a> {
 
     fn set_pin(&self, pin_number: u8, value: PinState) -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             buffer[0] = Registers::Gpio as u8;
-            // Save settings in buffer so they automatically get passed to
-            // state machine.
-            buffer[1] = pin_number;
-            buffer[2] = value as u8;
             self.i2c.write(buffer, 1);
-            self.state.set(State::SelectGpio);
+            self.state.set(State::SelectGpio(pin_number, value));
 
             ReturnCode::SUCCESS
         })
@@ -158,15 +146,11 @@ impl<'a> MCP23008<'a> {
 
     fn toggle_pin(&self, pin_number: u8) -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             buffer[0] = Registers::Gpio as u8;
-            // Save settings in buffer so they automatically get passed to
-            // state machine.
-            buffer[1] = pin_number;
             self.i2c.write(buffer, 1);
-            self.state.set(State::SelectGpioToggle);
+            self.state.set(State::SelectGpioToggle(pin_number));
 
             ReturnCode::SUCCESS
         })
@@ -174,15 +158,11 @@ impl<'a> MCP23008<'a> {
 
     fn read_pin(&self, pin_number: u8) -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             buffer[0] = Registers::Gpio as u8;
-            // Save settings in buffer so they automatically get passed to
-            // state machine.
-            buffer[1] = pin_number;
             self.i2c.write(buffer, 1);
-            self.state.set(State::SelectGpioRead);
+            self.state.set(State::SelectGpioRead(pin_number));
 
             ReturnCode::SUCCESS
         })
@@ -193,7 +173,6 @@ impl<'a> MCP23008<'a> {
                             direction: hil::gpio::InterruptMode)
                             -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             // Mark the settings that we have for this interrupt.
@@ -217,7 +196,6 @@ impl<'a> MCP23008<'a> {
 
     fn disable_interrupt_pin(&self, pin_number: u8) -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             // Clear this interrupt from our setup.
@@ -283,14 +261,12 @@ impl<'a> MCP23008<'a> {
 impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
     fn command_complete(&self, buffer: &'static mut [u8], _error: hil::i2c::Error) {
         match self.state.get() {
-            State::SelectIoDir => {
+            State::SelectIoDir(pin_number, direction) => {
                 self.i2c.read(buffer, 1);
-                self.state.set(State::ReadIoDir);
+                self.state.set(State::ReadIoDir(pin_number, direction));
             }
-            State::ReadIoDir => {
-                let pin_number = buffer[1];
-                let direction = buffer[2];
-                if direction == Direction::Input as u8 {
+            State::ReadIoDir(pin_number, direction) => {
+                if direction == Direction::Input {
                     buffer[1] = buffer[0] | (1 << pin_number);
                 } else {
                     buffer[1] = buffer[0] & !(1 << pin_number);
@@ -299,65 +275,57 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
             }
-            State::SelectGpPu => {
+            State::SelectGpPu(pin_number, enabled) => {
                 self.i2c.read(buffer, 7);
-                self.state.set(State::ReadGpPu);
+                self.state.set(State::ReadGpPu(pin_number, enabled));
             }
-            State::ReadGpPu => {
-                let pin_number = buffer[7];
-                let enabled = buffer[8] == 1;
+            State::ReadGpPu(pin_number, enabled) => {
                 // Make sure the pin is enabled.
                 buffer[1] = buffer[0] | (1 << pin_number);
                 // Configure the pullup status and save it in the buffer.
-                if enabled {
-                    buffer[2] = buffer[6] | (1 << pin_number);
-                } else {
-                    buffer[2] = buffer[6] & !(1 << pin_number);
-                }
+                let pullup = match enabled {
+                    true => buffer[6] | (1 << pin_number),
+                    false => buffer[6] & !(1 << pin_number),
+                };
                 buffer[0] = Registers::IoDir as u8;
                 self.i2c.write(buffer, 2);
-                self.state.set(State::SetGpPu);
+                self.state.set(State::SetGpPu(pullup));
             }
-            State::SetGpPu => {
+            State::SetGpPu(pullup) => {
                 // Now write the pull up settings to the chip.
                 buffer[0] = Registers::GpPu as u8;
-                buffer[1] = buffer[2];
+                buffer[1] = pullup;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
             }
-            State::SelectGpio => {
+            State::SelectGpio(pin_number, value) => {
                 self.i2c.read(buffer, 1);
-                self.state.set(State::ReadGpio);
+                self.state.set(State::ReadGpio(pin_number, value));
             }
-            State::ReadGpio => {
-                let pin_number = buffer[1];
-                let value = buffer[2];
-                if value == PinState::High as u8 {
-                    buffer[1] = buffer[0] | (1 << pin_number);
-                } else {
-                    buffer[1] = buffer[0] & !(1 << pin_number);
-                }
+            State::ReadGpio(pin_number, value) => {
+                buffer[1] = match value {
+                    PinState::High => buffer[0] | (1 << pin_number),
+                    PinState::Low  => buffer[0] & !(1 << pin_number),
+                };
                 buffer[0] = Registers::Gpio as u8;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
             }
-            State::SelectGpioToggle => {
+            State::SelectGpioToggle(pin_number) => {
                 self.i2c.read(buffer, 1);
-                self.state.set(State::ReadGpioToggle);
+                self.state.set(State::ReadGpioToggle(pin_number));
             }
-            State::ReadGpioToggle => {
-                let pin_number = buffer[1];
+            State::ReadGpioToggle(pin_number) => {
                 buffer[1] = buffer[0] ^ (1 << pin_number);
                 buffer[0] = Registers::Gpio as u8;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
             }
-            State::SelectGpioRead => {
+            State::SelectGpioRead(pin_number) => {
                 self.i2c.read(buffer, 1);
-                self.state.set(State::ReadGpioRead);
+                self.state.set(State::ReadGpioRead(pin_number));
             }
-            State::ReadGpioRead => {
-                let pin_number = buffer[1];
+            State::ReadGpioRead(pin_number) => {
                 let pin_value = (buffer[0] >> pin_number) & 0x01;
 
                 self.client.map(|client| {
