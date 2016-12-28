@@ -99,13 +99,6 @@ impl<'a> MCP23008<'a> {
         })
     }
 
-    // fn disable_interrupts(&self) {
-    //     self.interrupt_pin.map(|interrupt_pin| {
-    //         interrupt_pin.disable_interrupt();
-    //         interrupt_pin.disable();
-    //     });
-    // }
-
     fn set_direction(&self, pin_number: u8, direction: Direction) {
         self.buffer.take().map(|buffer| {
             // turn on i2c to send commands
@@ -413,12 +406,6 @@ impl<'a> hil::gpio::Client for MCP23008<'a> {
             self.i2c.write(buffer, 1);
             self.state.set(State::ReadInterruptSetup);
         });
-
-        // // TODO: This should ask the chip which pins interrupted.
-        // self.client.map(|client| {
-        //     // Put the port number in the lower half of the forwarded identifier.
-        //     client.fired(self.identifier.get() & 0x00FF);
-        // });
     }
 }
 
