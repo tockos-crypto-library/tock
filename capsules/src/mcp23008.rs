@@ -84,9 +84,8 @@ impl<'a> MCP23008<'a> {
     /// Set the client of this MCP23008 when commands finish or interrupts
     /// occur. The `identifier` is simply passed back with the callback
     /// so that the upper layer can keep track of which device triggered.
-    pub fn set_client<C: hil::gpio_async::Client>(&self, client: &'static C, identifier: usize) {
+    pub fn set_client<C: hil::gpio_async::Client>(&self, client: &'static C) {
         self.client.replace(client);
-        self.identifier.set(identifier);
     }
 
     fn enable_host_interrupt(&self) -> isize {
@@ -373,11 +372,6 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                             hil::gpio::InterruptMode::RisingEdge => pin_status == 0x01,
                             hil::gpio::InterruptMode::FallingEdge => pin_status == 0x00,
                         };
-                        // if interrupt_direction == hil::gpio::InterruptMode::EitherEdge ||
-                        //    (interrupt_direction == hil::gpio::InterruptMode::RisingEdge &&
-                        //     pin_status == 0x01) ||
-                        //    (interrupt_direction == hil::gpio::InterruptMode::FallingEdge &&
-                        //     pin_status == 0x00) {
                         if fire_interrupt {
                             // Signal this interrupt to the application.
                             self.client.map(|client| {
@@ -500,11 +494,12 @@ impl<'a> hil::gpio_async::GPIOAsyncPort for MCP23008<'a> {
         }
     }
 
-    fn enable_interrupt(&self, pin: usize, mode: hil::gpio::InterruptMode) -> isize {
+    fn enable_interrupt(&self, pin: usize, mode: hil::gpio::InterruptMode, identifier: usize) -> isize {
         let main_interrupt_enabled = self.enable_host_interrupt();
         if main_interrupt_enabled < 0 {
             return -1;
         }
+        self.identifier.set(identifier);
         self.enable_interrupt_pin(pin as u8, mode);
         0
     }

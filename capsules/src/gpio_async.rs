@@ -29,7 +29,7 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> GPIOAsync<'a, Port> {
             0 => hil::gpio::InputMode::PullUp,
             1 => hil::gpio::InputMode::PullDown,
             _ => hil::gpio::InputMode::PullNone,
-        }
+        };
         ports[port].enable_input(pin, mode)
     }
 
@@ -42,8 +42,8 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> GPIOAsync<'a, Port> {
             0 => hil::gpio::InterruptMode::RisingEdge,
             1 => hil::gpio::InterruptMode::FallingEdge,
             _ => hil::gpio::InterruptMode::EitherEdge,
-        }
-        ports[port].enable_interrupt(pin, mode)
+        };
+        ports[port].enable_interrupt(pin, mode, port)
     }
 }
 
