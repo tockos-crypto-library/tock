@@ -1,4 +1,5 @@
 use hil;
+use returncode::ReturnCode;
 
 /// Interface for banks of asynchronous GPIO pins. GPIO pins are asynchronous
 /// when there is an asynchronous interface used to control them. The most
@@ -15,35 +16,35 @@ use hil;
 /// The API for the GPIOAsyncPort mirrors the synchronous GPIO interface.
 pub trait GPIOAsyncPort {
     /// Try to disable a GPIO pin. This cannot be supported for all devices.
-    fn disable(&self, pin: usize) -> isize;
+    fn disable(&self, pin: usize) -> ReturnCode;
 
     /// Configure a pin as an ouput GPIO.
-    fn enable_output(&self, pin: usize) -> isize;
+    fn enable_output(&self, pin: usize) -> ReturnCode;
 
     /// Configure a pin as an input GPIO. Not all InputMode settings may
     /// be supported by a given device.
-    fn enable_input(&self, pin: usize, mode: hil::gpio::InputMode) -> isize;
+    fn enable_input(&self, pin: usize, mode: hil::gpio::InputMode) -> ReturnCode;
 
     /// Get the state (0 or 1) of an input pin. The value will be returned
     /// via a callback.
-    fn read(&self, pin: usize) -> isize;
+    fn read(&self, pin: usize) -> ReturnCode;
 
     /// Toggle an output GPIO pin.
-    fn toggle(&self, pin: usize) -> isize;
+    fn toggle(&self, pin: usize) -> ReturnCode;
 
     /// Assert a GPIO pin high.
-    fn set(&self, pin: usize) -> isize;
+    fn set(&self, pin: usize) -> ReturnCode;
 
     /// Clear a GPIO pin low.
-    fn clear(&self, pin: usize) -> isize;
+    fn clear(&self, pin: usize) -> ReturnCode;
 
     /// Setup an interrupt on a GPIO input pin. The identifier should be
     /// the port number and will be returned when the interrupt callback
     /// fires.
-    fn enable_interrupt(&self, pin: usize, mode: hil::gpio::InterruptMode, identifier: usize) -> isize;
+    fn enable_interrupt(&self, pin: usize, mode: hil::gpio::InterruptMode, identifier: usize) -> ReturnCode;
 
     /// Disable an interrupt on a GPIO input pin.
-    fn disable_interrupt(&self, pin: usize) -> isize;
+    fn disable_interrupt(&self, pin: usize) -> ReturnCode;
 }
 
 /// The gpio_async Client interface is used to both receive callbacks

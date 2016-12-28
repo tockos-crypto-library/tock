@@ -6,6 +6,7 @@ use core::cell::Cell;
 
 use kernel::hil;
 use kernel::{AppId, Callback, Driver};
+use kernel::returncode::ReturnCode;
 
 pub struct GPIOAsync<'a, Port: hil::gpio_async::GPIOAsyncPort + 'a> {
     ports: &'a [&'a Port],
@@ -20,10 +21,10 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> GPIOAsync<'a, Port> {
         }
     }
 
-    fn configure_input_pin(&self, port: usize, pin: usize, config: usize) -> isize {
+    fn configure_input_pin(&self, port: usize, pin: usize, config: usize) -> ReturnCode {
         let ports = self.ports.as_ref();
         if config > 2 {
-            return -1;
+            return ReturnCode::EINVAL;
         }
         let mode = match config {
             0 => hil::gpio::InputMode::PullUp,
@@ -33,10 +34,10 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> GPIOAsync<'a, Port> {
         ports[port].enable_input(pin, mode)
     }
 
-    fn configure_interrupt(&self, port: usize, pin: usize, config: usize) -> isize {
+    fn configure_interrupt(&self, port: usize, pin: usize, config: usize) -> ReturnCode {
         let ports = self.ports.as_ref();
         if config > 2 {
-            return -1;
+            return ReturnCode::EINVAL;
         }
         let mode = match config {
             0 => hil::gpio::InterruptMode::RisingEdge,
@@ -90,31 +91,31 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> Driver for GPIOAsync<'a, Port> {
             0 => ports.len() as isize,
 
             // enable output
-            1 => ports[port].enable_output(pin),
+            1 => (ports[port].enable_output(pin) as isize) * -1,
 
             // set pin
-            2 => ports[port].set(pin),
+            2 => (ports[port].set(pin) as isize) * -1,
 
             // clear pin
-            3 => ports[port].clear(pin),
+            3 => (ports[port].clear(pin) as isize) * -1,
 
             // toggle pin
-            4 => ports[port].toggle(pin),
+            4 => (ports[port].toggle(pin) as isize) * -1,
 
             // enable and configure input
-            5 => self.configure_input_pin(port, pin, other & 0xFF),
+            5 => (self.configure_input_pin(port, pin, other & 0xFF) as isize) * -1,
 
             // read input
-            6 => ports[port].read(pin),
+            6 => (ports[port].read(pin) as isize) * -1,
 
             // enable interrupt on pin
-            7 => self.configure_interrupt(port, pin, other & 0xFF),
+            7 => (self.configure_interrupt(port, pin, other & 0xFF) as isize) * -1,
 
             // disable interrupt on pin
-            8 => ports[port].disable_interrupt(pin),
+            8 => (ports[port].disable_interrupt(pin) as isize) * -1,
 
             // disable pin
-            9 => ports[port].disable(pin),
+            9 => (ports[port].disable(pin) as isize) * -1,
 
             // default
             _ => -1,
