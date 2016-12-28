@@ -403,7 +403,6 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
 impl<'a> hil::gpio::Client for MCP23008<'a> {
     fn fired(&self, _: usize) {
         self.buffer.take().map(|buffer| {
-            // turn on i2c to send commands
             self.i2c.enable();
 
             // Need to read the IntF register which marks which pins
