@@ -9,7 +9,7 @@ use kernel::hil;
 use kernel::returncode::ReturnCode;
 
 // Buffer to use for I2C messages
-pub static mut BUFFER : [u8; 9] = [0; 9];
+pub static mut BUFFER: [u8; 9] = [0; 9];
 
 #[allow(dead_code)]
 enum Registers {
@@ -71,8 +71,11 @@ pub struct MCP23008<'a> {
 }
 
 impl<'a> MCP23008<'a> {
-    pub fn new(i2c: &'a hil::i2c::I2CDevice, interrupt_pin: Option<&'static hil::gpio::Pin>, buffer: &'static mut [u8]) -> MCP23008<'a> {
-        MCP23008{
+    pub fn new(i2c: &'a hil::i2c::I2CDevice,
+               interrupt_pin: Option<&'static hil::gpio::Pin>,
+               buffer: &'static mut [u8])
+               -> MCP23008<'a> {
+        MCP23008 {
             i2c: i2c,
             state: Cell::new(State::Idle),
             buffer: TakeCell::new(buffer),
@@ -185,7 +188,10 @@ impl<'a> MCP23008<'a> {
         })
     }
 
-    fn enable_interrupt_pin(&self, pin_number: u8, direction: hil::gpio::InterruptMode) -> ReturnCode {
+    fn enable_interrupt_pin(&self,
+                            pin_number: u8,
+                            direction: hil::gpio::InterruptMode)
+                            -> ReturnCode {
         self.buffer.take().map_or(ReturnCode::ENOMEM, |buffer| {
             // turn on i2c to send commands
             self.i2c.enable();
@@ -229,19 +235,22 @@ impl<'a> MCP23008<'a> {
 
     /// Helper functions for keeping track of which interrupts are currently
     /// enabled.
-    fn save_pin_interrupt_state(&self, pin_number: u8, enabled: bool, direction: hil::gpio::InterruptMode) {
+    fn save_pin_interrupt_state(&self,
+                                pin_number: u8,
+                                enabled: bool,
+                                direction: hil::gpio::InterruptMode) {
         let mut current_state = self.interrupt_settings.get();
         // Clear out existing settings
-        current_state &= !(0x0F << (4*pin_number));
+        current_state &= !(0x0F << (4 * pin_number));
         // Generate new settings
         let new_settings = (((enabled as u8) | ((direction as u8) << 1)) & 0x0F) as u32;
         // Update settings
-        current_state |= new_settings << (4*pin_number);
+        current_state |= new_settings << (4 * pin_number);
         self.interrupt_settings.set(current_state);
     }
 
     fn remove_pin_interrupt_state(&self, pin_number: u8) {
-        let new_settings = self.interrupt_settings.get() & !(0x0F << (4*pin_number));
+        let new_settings = self.interrupt_settings.get() & !(0x0F << (4 * pin_number));
         self.interrupt_settings.set(new_settings);
     }
 
@@ -250,26 +259,25 @@ impl<'a> MCP23008<'a> {
         let current_state = self.interrupt_settings.get();
         let mut interrupts_enabled: u8 = 0;
         for i in 0..8 {
-            if ((current_state >> (4*i)) & 0x01) == 0x01 {
-                interrupts_enabled &= 1<<i;
+            if ((current_state >> (4 * i)) & 0x01) == 0x01 {
+                interrupts_enabled &= 1 << i;
             }
         }
         interrupts_enabled
     }
 
     fn check_pin_interrupt_enabled(&self, pin_number: u8) -> bool {
-        (self.interrupt_settings.get() >> (pin_number*4)) & 0x01 == 0x01
+        (self.interrupt_settings.get() >> (pin_number * 4)) & 0x01 == 0x01
     }
 
     fn get_pin_interrupt_direction(&self, pin_number: u8) -> hil::gpio::InterruptMode {
-        let direction = self.interrupt_settings.get() >> ((pin_number*4)+1) & 0x03;
+        let direction = self.interrupt_settings.get() >> ((pin_number * 4) + 1) & 0x03;
         match direction {
             0 => hil::gpio::InterruptMode::RisingEdge,
             1 => hil::gpio::InterruptMode::FallingEdge,
             _ => hil::gpio::InterruptMode::EitherEdge,
         }
     }
-
 }
 
 impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
@@ -278,7 +286,7 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
             State::SelectIoDir => {
                 self.i2c.read(buffer, 1);
                 self.state.set(State::ReadIoDir);
-            },
+            }
             State::ReadIoDir => {
                 let pin_number = buffer[1];
                 let direction = buffer[2];
@@ -290,18 +298,18 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 buffer[0] = Registers::IoDir as u8;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
-            },
+            }
             State::SelectGpPu => {
                 self.i2c.read(buffer, 7);
                 self.state.set(State::ReadGpPu);
-            },
+            }
             State::ReadGpPu => {
                 let pin_number = buffer[7];
                 let enabled = buffer[8] == 1;
                 // Make sure the pin is enabled.
                 buffer[1] = buffer[0] | (1 << pin_number);
                 // Configure the pullup status and save it in the buffer.
-                if enabled  {
+                if enabled {
                     buffer[2] = buffer[6] | (1 << pin_number);
                 } else {
                     buffer[2] = buffer[6] & !(1 << pin_number);
@@ -309,18 +317,18 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 buffer[0] = Registers::IoDir as u8;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::SetGpPu);
-            },
+            }
             State::SetGpPu => {
                 // Now write the pull up settings to the chip.
                 buffer[0] = Registers::GpPu as u8;
                 buffer[1] = buffer[2];
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
-            },
+            }
             State::SelectGpio => {
                 self.i2c.read(buffer, 1);
                 self.state.set(State::ReadGpio);
-            },
+            }
             State::ReadGpio => {
                 let pin_number = buffer[1];
                 let value = buffer[2];
@@ -332,22 +340,22 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 buffer[0] = Registers::Gpio as u8;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
-            },
+            }
             State::SelectGpioToggle => {
                 self.i2c.read(buffer, 1);
                 self.state.set(State::ReadGpioToggle);
-            },
+            }
             State::ReadGpioToggle => {
                 let pin_number = buffer[1];
                 buffer[1] = buffer[0] ^ (1 << pin_number);
                 buffer[0] = Registers::Gpio as u8;
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
-            },
+            }
             State::SelectGpioRead => {
                 self.i2c.read(buffer, 1);
                 self.state.set(State::ReadGpioRead);
-            },
+            }
             State::ReadGpioRead => {
                 let pin_number = buffer[1];
                 let pin_value = (buffer[0] >> pin_number) & 0x01;
@@ -359,7 +367,7 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 self.buffer.replace(buffer);
                 self.i2c.disable();
                 self.state.set(State::Idle);
-            },
+            }
             State::EnableInterruptSettings => {
                 // Rather than read the current interrupts and write those
                 // back, just write the entire register with our saved state.
@@ -367,12 +375,12 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 buffer[1] = self.get_pin_interrupt_enabled_state();
                 self.i2c.write(buffer, 2);
                 self.state.set(State::Done);
-            },
+            }
             State::ReadInterruptSetup => {
                 // Now read the interrupt flags and the state of the lines
                 self.i2c.read(buffer, 3);
                 self.state.set(State::ReadInterruptValues);
-            },
+            }
             State::ReadInterruptValues => {
                 let interrupt_flags = buffer[0];
                 let pins_status = buffer[2];
@@ -397,7 +405,8 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                         if fire_interrupt {
                             // Signal this interrupt to the application.
                             self.client.map(|client| {
-                                // Put the port number in the lower half of the forwarded identifier.
+                                // Put the port number in the lower half of the
+                                // forwarded identifier.
                                 let ret = (self.identifier.get() & 0x00FF) | ((i as usize) << 8);
                                 client.fired(ret);
                             });
@@ -408,7 +417,7 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 self.buffer.replace(buffer);
                 self.i2c.disable();
                 self.state.set(State::Idle);
-            },
+            }
             State::Done => {
                 self.client.map(|client| {
                     client.done(0);
@@ -417,7 +426,7 @@ impl<'a> hil::i2c::I2CClient for MCP23008<'a> {
                 self.buffer.replace(buffer);
                 self.i2c.disable();
                 self.state.set(State::Idle);
-            },
+            }
             _ => {}
         }
     }
@@ -445,48 +454,62 @@ impl<'a> hil::gpio_async::GPIOAsyncPort for MCP23008<'a> {
     }
 
     fn enable_output(&self, pin: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         self.set_direction(pin as u8, Direction::Output)
     }
 
     fn enable_input(&self, pin: usize, mode: hil::gpio::InputMode) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         match mode {
-            hil::gpio::InputMode::PullUp => {
-                self.configure_pullup(pin as u8, true)
-            },
+            hil::gpio::InputMode::PullUp => self.configure_pullup(pin as u8, true),
             hil::gpio::InputMode::PullDown => {
                 // No support for this
                 self.configure_pullup(pin as u8, false)
-            },
-            hil::gpio::InputMode::PullNone => {
-                self.configure_pullup(pin as u8, false)
-            },
+            }
+            hil::gpio::InputMode::PullNone => self.configure_pullup(pin as u8, false),
         }
     }
 
     fn read(&self, pin: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         self.read_pin(pin as u8)
     }
 
     fn toggle(&self, pin: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         self.toggle_pin(pin as u8)
     }
 
     fn set(&self, pin: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         self.set_pin(pin as u8, PinState::High)
     }
 
     fn clear(&self, pin: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         self.set_pin(pin as u8, PinState::Low)
     }
 
-    fn enable_interrupt(&self, pin: usize, mode: hil::gpio::InterruptMode, identifier: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+    fn enable_interrupt(&self,
+                        pin: usize,
+                        mode: hil::gpio::InterruptMode,
+                        identifier: usize)
+                        -> ReturnCode {
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         let ret = self.enable_host_interrupt();
         match ret {
             ReturnCode::SUCCESS => {
@@ -498,7 +521,9 @@ impl<'a> hil::gpio_async::GPIOAsyncPort for MCP23008<'a> {
     }
 
     fn disable_interrupt(&self, pin: usize) -> ReturnCode {
-        if pin > 7 { return ReturnCode::EINVAL; }
+        if pin > 7 {
+            return ReturnCode::EINVAL;
+        }
         self.disable_interrupt_pin(pin as u8)
     }
 }

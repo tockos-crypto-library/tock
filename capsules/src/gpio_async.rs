@@ -3,9 +3,9 @@
 //! a radio that has controllable GPIOs.
 
 use core::cell::Cell;
+use kernel::{AppId, Callback, Driver};
 
 use kernel::hil;
-use kernel::{AppId, Callback, Driver};
 use kernel::returncode::ReturnCode;
 
 pub struct GPIOAsync<'a, Port: hil::gpio_async::GPIOAsyncPort + 'a> {
@@ -50,15 +50,11 @@ impl<'a, Port: hil::gpio_async::GPIOAsyncPort> GPIOAsync<'a, Port> {
 
 impl<'a, Port: hil::gpio_async::GPIOAsyncPort> hil::gpio_async::Client for GPIOAsync<'a, Port> {
     fn fired(&self, port_pin_num: usize) {
-        self.callback.get().map(|mut cb|
-            cb.schedule(1, port_pin_num, 0)
-        );
+        self.callback.get().map(|mut cb| cb.schedule(1, port_pin_num, 0));
     }
 
     fn done(&self, value: usize) {
-        self.callback.get().map(|mut cb|
-            cb.schedule(0, value, 0)
-        );
+        self.callback.get().map(|mut cb| cb.schedule(0, value, 0));
     }
 }
 
