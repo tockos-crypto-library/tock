@@ -20,7 +20,7 @@ use nvic;
 use pm::{self, Clock, PBAClock};
 use scif;
 
-#[rep(C, packed)]
+#[repr(C, packed)]
 pub struct DacRegisters {
     // From page 905 of SAM4L manual
     cr: VolatileCell<u32>, // Control                   (0x00)
@@ -69,8 +69,11 @@ impl Dac {
                 nvic::enable(nvic::NvicIdx::DACC);
             }
 
-            let mr: u32 = 0;
-            let wpmr: u32 = 0;
+            // FIXME: do we need to write 1 to control register (CR) to do
+            // software reset? when?
+
+            let mut mr: u32 = regs.mr.get();
+            let mut wpmr: u32 = regs.wpmr.get();
 
             // write to mode register to enable the DAC
             // This code changes DACEN in MR to 1
@@ -98,7 +101,7 @@ impl Dac {
             regs.mr.set(mr);
 
             // write to the Write Protect Mode Register
-            wpmr = (0x444143 << 8) | 1;
+            wpmr = wpmr | (0x444143 << 8) | 1;
             regs.wpmr.set(wpmr);
 
             // reset TXRDY bit in interrupt register
