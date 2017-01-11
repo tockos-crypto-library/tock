@@ -55,11 +55,23 @@ CPPFLAGS += \
 OBJDUMP_FLAGS += --disassemble-all --source --disassembler-options=force-thumb -C --section-headers
 
 LIBS += $(LIBTOCK)
-LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libc.a
-LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libm.a
+#XXX See LTO .a workaround
+#LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libc.a
+#LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libm.a
 LIBS += $(TOCK_USERLAND_BASE_DIR)/libc++/libstdc++.a
 LIBS += $(TOCK_USERLAND_BASE_DIR)/libc++/libsupc++.a
 LIBS += $(TOCK_USERLAND_BASE_DIR)/libc++/libgcc.a
+
+# The compiler can emit calls to a few functions during its transformations.
+# With aggressive function sections, gc-sections, and LTO, somehow the compiler
+# will occasionaly delete our (newlib's) implementation of a function that it
+# will later emit a call to. These force the listed symbols to be kept around,
+# working around this issue
+LD_FORCE_FNS := \
+	-Wl,--undefined=memcmp\
+	-Wl,--undefined=memcpy\
+	-Wl,--undefined=memset\
+	-Wl,--undefined=memmove
 
 # First step doesn't actually compile, just generate header dependency information
 # More info on our approach here: http://stackoverflow.com/questions/97338
@@ -100,9 +112,21 @@ include $(TOCK_USERLAND_BASE_DIR)/libtock/Makefile
 $(BUILDDIR):
 	$(Q)mkdir -p $(BUILDDIR)
 
-$(BUILDDIR)/app.elf: $(OBJS) $(LIBS) | $(BUILDDIR)
+#XXX LTO .a workaround
+# For presently undiagnosed reasons, LTO will fail to find some symbols if they
+# are in an archive during compilation. However, if we simply extract every
+# object first, then things work correctly
+$(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround: $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libc.a $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libm.a
+	@rm -rf $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround
+	@mkdir $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround
+	@cp $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libc.a $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround/
+	@cp $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libm.a $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround/
+	@cd $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround && arm-none-eabi-ar -x libc.a --plugin=$(arm-none-eabi-gcc --print-file-name=liblto_plugin.so)
+	@cd $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround && arm-none-eabi-ar -x libm.a --plugin=$(arm-none-eabi-gcc --print-file-name=liblto_plugin.so)
+
+$(BUILDDIR)/app.elf: $(OBJS) $(LIBS) | $(BUILDDIR) $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround
 	$(TRACE_LD)
-	$(Q)$(CC) -Wl,-pie -Wl,--gc-sections -Wl,--emit-relocs --entry=_start $(CFLAGS) $(CPPFLAGS) -T $(LINKER) -nostdlib -Wl,--start-group $(OBJS) $(LIBS) -Wl,--end-group -Wl,-Map=$(BUILDDIR)/app.Map -o $@
+	$(Q)$(CC) -Wl,-pie -Wl,--gc-sections -Wl,--emit-relocs --entry=_start $(CFLAGS) $(CPPFLAGS) -T $(LINKER) -nostdlib $(LD_FORCE_FNS) -Wl,--start-group $(OBJS) $(LIBS) $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/lto_archive_workaround/*.o -Wl,--end-group -Wl,-Map=$(BUILDDIR)/app.Map -o $@
 
 $(BUILDDIR)/app.bin: $(BUILDDIR)/app.elf | $(BUILDDIR) validate_gcc_flags
 	$(TRACE_BIN)
