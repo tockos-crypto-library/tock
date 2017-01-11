@@ -54,8 +54,8 @@ CPPFLAGS += \
 OBJDUMP_FLAGS += --disassemble-all --source --disassembler-options=force-thumb -C --section-headers
 
 LIBS += $(LIBTOCK)
-LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/libc.a
-LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/libm.a
+LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libc.a
+LIBS += $(TOCK_USERLAND_BASE_DIR)/newlib/$(TOCK_ARCH)/libm.a
 LIBS += $(TOCK_USERLAND_BASE_DIR)/libc++/libstdc++.a
 LIBS += $(TOCK_USERLAND_BASE_DIR)/libc++/libsupc++.a
 LIBS += $(TOCK_USERLAND_BASE_DIR)/libc++/libgcc.a
@@ -99,7 +99,7 @@ include $(TOCK_USERLAND_BASE_DIR)/libtock/Makefile
 $(BUILDDIR):
 	$(Q)mkdir -p $(BUILDDIR)
 
-$(BUILDDIR)/app.elf: $(OBJS) $(TOCK_USERLAND_BASE_DIR)/newlib/libc.a $(LIBTOCK) | $(BUILDDIR)
+$(BUILDDIR)/app.elf: $(OBJS) $(LIBS) | $(BUILDDIR)
 	$(TRACE_LD)
 	$(Q)$(CC) -Wl,--gc-sections -Wl,--emit-relocs --entry=_start $(CFLAGS) $(CPPFLAGS) -T $(LINKER) -nostdlib -Wl,--start-group $(OBJS) $(LIBS) -Wl,--end-group -Wl,-Map=$(BUILDDIR)/app.Map -o $@
 
