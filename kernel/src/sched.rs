@@ -93,7 +93,7 @@ pub unsafe fn do_process<P: Platform, C: Chip>(platform: &P,
                 let callback_ptr = process.r2() as *mut ();
                 let appdata = process.r3();
 
-                let callback = ::Callback::new(appid, appdata, callback_ptr);
+                let callback = ::Callback::new(appid, appdata, callback_ptr, None);
                 let res = platform.with_driver(driver_num, |driver| {
                     match driver {
                         Some(d) => d.subscribe(subdriver_num, callback),

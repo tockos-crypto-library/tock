@@ -19,7 +19,7 @@ mod sched;
 mod syscall;
 mod platform;
 
-pub use callback::{AppId, Callback};
+pub use callback::{AppId, Callback, FakeCallback};
 pub use container::Container;
 pub use driver::Driver;
 pub use mem::{AppSlice, AppPtr, Private, Shared};

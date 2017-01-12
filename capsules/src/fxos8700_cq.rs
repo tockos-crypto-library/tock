@@ -222,7 +222,12 @@ impl<'a> I2CClient for Fxos8700cq<'a> {
                 self.i2c.disable();
                 self.state.set(State::Disabled);
                 self.buffer.replace(buffer);
-                self.callback.get().map(|mut cb| cb.schedule(x as usize, y as usize, z as usize));
+                self.callback.get().map_or_else(|| {
+                    panic!("This gets called.");
+                }, |mut cb| {
+                    panic!("Not this.");
+                    cb.schedule(x as usize, y as usize, z as usize);
+                });
             }
             State::ReadMagStart => {
                 // One shot measurement taken, now read result.

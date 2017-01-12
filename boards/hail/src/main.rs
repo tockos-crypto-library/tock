@@ -18,6 +18,7 @@ use kernel::hil;
 use kernel::hil::Controller;
 use kernel::hil::spi::SpiMaster;
 use kernel::mpu::MPU;
+use kernel::callback::{AppId, Callback};
 use sam4l::usart;
 
 #[macro_use]
@@ -74,7 +75,7 @@ struct Hail {
                                                                     sam4l::ast::Ast<'static>>>,
     si7021: &'static capsules::si7021::SI7021<'static,
                                               VirtualMuxAlarm<'static, sam4l::ast::Ast<'static>>>,
-    fxos8700: &'static capsules::fxos8700_cq::Fxos8700cq<'static>,
+    fxos8700: &'static capsules::virtual_ninedof::VirtualNineDof<'static>,
     spi: &'static capsules::spi::Spi<'static, sam4l::spi::Spi>,
     nrf51822: &'static Nrf51822Serialization<'static, usart::USART>,
     adc: &'static capsules::adc::ADC<'static, sam4l::adc::Adc>,
@@ -190,7 +191,7 @@ pub unsafe fn reset_handler() {
         Nrf51822Serialization::new(&usart::USART3,
                                    &mut nrf51822_serialization::WRITE_BUF,
                                    &mut nrf51822_serialization::READ_BUF),
-        608/8);
+        704/8);
     hil::uart::UART::set_client(&usart::USART3, nrf_serialization);
 
     let ast = &sam4l::ast::AST;
@@ -218,7 +219,7 @@ pub unsafe fn reset_handler() {
         capsules::si7021::SI7021::new(si7021_i2c,
             si7021_virtual_alarm,
             &mut capsules::si7021::BUFFER),
-        288/8);
+        384/8);
     si7021_i2c.set_client(si7021);
     si7021_virtual_alarm.set_client(si7021);
 
@@ -232,7 +233,7 @@ pub unsafe fn reset_handler() {
         capsules::isl29035::Isl29035<'static, VirtualMuxAlarm<'static, sam4l::ast::Ast>>,
         capsules::isl29035::Isl29035::new(isl29035_i2c, isl29035_virtual_alarm,
                                           &mut capsules::isl29035::BUF),
-        320/8);
+        416/8);
     isl29035_i2c.set_client(isl29035);
     isl29035_virtual_alarm.set_client(isl29035);
 
@@ -247,20 +248,26 @@ pub unsafe fn reset_handler() {
         12);
     virtual_alarm1.set_client(timer);
 
-    // FXOS8700CQ accelerometer, device address 0x
+    // FXOS8700CQ accelerometer, device address 0x1e
     let fxos8700_i2c = static_init!(I2CDevice, I2CDevice::new(sensors_i2c, 0x1e), 32);
     let fxos8700 = static_init!(
         capsules::fxos8700_cq::Fxos8700cq<'static>,
         capsules::fxos8700_cq::Fxos8700cq::new(fxos8700_i2c, &mut capsules::fxos8700_cq::BUF),
-        288/8);
+        384/8);
     fxos8700_i2c.set_client(fxos8700);
+    let fxos8700_sharer = static_init!(
+        capsules::virtual_ninedof::VirtualNineDof<'static>,
+        capsules::virtual_ninedof::VirtualNineDof::new(fxos8700, kernel::Container::create()),
+        160/8);
+    let c = Callback::new(AppId::new(0), 0, 0 as *mut (), Some(fxos8700_sharer));
+    kernel::Driver::subscribe(fxos8700, 0, c);
 
     // Initialize and enable SPI HAL
     let chip_selects = static_init!([u8; 1], [0], 1);
     let spi = static_init!(
         capsules::spi::Spi<'static, sam4l::spi::Spi>,
         capsules::spi::Spi::new(&mut sam4l::spi::SPI, chip_selects),
-        92);
+        832/8);
     spi.config_buffers(&mut spi_read_buf, &mut spi_write_buf);
     sam4l::spi::SPI.set_client(spi);
     sam4l::spi::SPI.init();
@@ -294,7 +301,7 @@ pub unsafe fn reset_handler() {
     let adc = static_init!(
         capsules::adc::ADC<'static, sam4l::adc::Adc>,
         capsules::adc::ADC::new(&mut sam4l::adc::ADC),
-        160/8);
+        256/8);
     sam4l::adc::ADC.set_client(adc);
 
 
@@ -310,7 +317,7 @@ pub unsafe fn reset_handler() {
     let gpio = static_init!(
         capsules::gpio::GPIO<'static, sam4l::gpio::GPIOPin>,
         capsules::gpio::GPIO::new(gpio_pins),
-        20);
+        256/8);
     for pin in gpio_pins.iter() {
         pin.set_client(gpio);
     }
@@ -321,7 +328,7 @@ pub unsafe fn reset_handler() {
         timer: timer,
         si7021: si7021,
         isl29035: isl29035,
-        fxos8700: fxos8700,
+        fxos8700: fxos8700_sharer,
         spi: spi,
         nrf51822: nrf_serialization,
         adc: adc,
