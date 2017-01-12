@@ -40,7 +40,7 @@ struct Imix {
     button: &'static capsules::button::Button<'static, sam4l::gpio::GPIOPin>,
     spi: &'static capsules::spi::Spi<'static, VirtualSpiMasterDevice<'static, sam4l::spi::Spi>>,
     ipc: kernel::ipc::IPC,
-    fxos8700_cq: &'static capsules::fxos8700_cq::Fxos8700cq<'static>,
+    ninedof: &'static capsules::virtual_ninedof::VirtualNineDof<'static>,
 }
 
 impl kernel::Platform for Imix {
@@ -58,7 +58,7 @@ impl kernel::Platform for Imix {
             8 => f(Some(self.led)),
             9 => f(Some(self.button)),
             10 => f(Some(self.si7021)),
-            11 => f(Some(self.fxos8700_cq)),
+            11 => f(Some(self.ninedof)),
 
             0xff => f(Some(&self.ipc)),
             _ => f(None),
@@ -240,13 +240,18 @@ pub unsafe fn reset_handler() {
     si7021_i2c.set_client(si7021);
     si7021_alarm.set_client(si7021);
 
-    // FXOS8700CQ accelerometer
-    let fx0_i2c = static_init!(I2CDevice, I2CDevice::new(mux_i2c, 0x1e), 32);
-    let fx0 = static_init!(
+    // FXOS8700CQ accelerometer, device address 0x1e
+    let fxos8700_i2c = static_init!(I2CDevice, I2CDevice::new(mux_i2c, 0x1e), 32);
+    let fxos8700 = static_init!(
         capsules::fxos8700_cq::Fxos8700cq<'static>,
-        capsules::fxos8700_cq::Fxos8700cq::new(fx0_i2c, &mut capsules::fxos8700_cq::BUF),
-        288/8);
-    fx0_i2c.set_client(fx0);
+        capsules::fxos8700_cq::Fxos8700cq::new(fxos8700_i2c, &mut capsules::fxos8700_cq::BUF),
+        256/8);
+    fxos8700_i2c.set_client(fxos8700);
+    let virtual_ninedof = static_init!(
+        capsules::virtual_ninedof::VirtualNineDof<'static>,
+        capsules::virtual_ninedof::VirtualNineDof::new(fxos8700, kernel::Container::create()),
+        160/8);
+    hil::ninedof::NineDof::set_client(fxos8700, virtual_ninedof);
 
     // Clear sensors enable pin to enable sensor rail
     sam4l::gpio::PC[16].enable_output();
@@ -322,7 +327,7 @@ pub unsafe fn reset_handler() {
         button: button,
         spi: spi_syscalls,
         ipc: kernel::ipc::IPC::new(),
-        fxos8700_cq: fx0,
+        ninedof: virtual_ninedof,
     };
 
     let mut chip = sam4l::chip::Sam4l::new();

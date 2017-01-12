@@ -8,6 +8,7 @@ pub mod rng;
 pub mod adc;
 pub mod flash;
 pub mod watchdog;
+pub mod ninedof;
 
 pub trait Controller {
     type Config;
