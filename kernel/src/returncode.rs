@@ -4,6 +4,7 @@
 //!  Author: Philip Levis <pal@cs.stanford.edu>
 //!  Date: Dec 22, 2016
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum ReturnCode {
     SUCCESS,
     FAIL, // Generic failure condition
