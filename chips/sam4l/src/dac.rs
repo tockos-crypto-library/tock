@@ -15,7 +15,7 @@ use core::cell::Cell;
 use core::mem;
 use kernel::common::volatile_cell::VolatileCell;
 use kernel::hil;
-
+use kernel::hil::dac::DacSingle;
 use nvic;
 use pm::{self, Clock, PBAClock};
 use scif;
@@ -57,8 +57,13 @@ impl Dac {
         }
     }
 
+    // we don't really need interrupt for now
+    pub fn handle_interrupt(&mut self){}
+}
 
-    fn enable(&self) {
+impl DacSingle for Dac {
+
+    fn enable(&self) -> bool{
         let regs: &mut DacRegisters = unsafe { mem::transmute(self.registers) };
         if !self.enabled.get() {
             self.enabled.set(true);
@@ -107,6 +112,8 @@ impl Dac {
             // reset TXRDY bit in interrupt register
 
         }
+
+        return true;
     }
 
     // check for the ready bit in TXRDY and set the value in CDR
@@ -120,7 +127,7 @@ impl Dac {
             return false;
         }
 
-        let mut isr: u32 = regs.isr.get();
+        let isr: u32 = regs.isr.get();
 
         // if isr.TXRDY is not ready, return error
         if (isr & 0x01) == 0 {
@@ -135,9 +142,6 @@ impl Dac {
 
         return true;
     }
-
-    // we don't really need interrupt for now
-    pub fn handle_interrupt(&mut self){}
 }
 
 interrupt_handler!(dacc_handler, DACC);
