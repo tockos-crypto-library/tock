@@ -109,6 +109,34 @@ impl Dac {
         }
     }
 
+    // check for the ready bit in TXRDY and set the value in CDR
+    // if error, the return bool would be set to false
+    // otherwise it should return true
+    fn set(&self, data: u16) -> bool {
+
+        let regs: &mut DacRegisters = unsafe { mem::transmute(self.registers) };
+
+        if !self.enabled.get() {
+            return false;
+        }
+
+        let mut isr: u32 = regs.isr.get();
+
+        // if isr.TXRDY is not ready, return error
+        if (isr & 0x01) == 0 {
+            return false;
+        }
+
+        let mut cdr: u32 = regs.cdr.get();
+
+        cdr = cdr | ((data & 0x3ff) as u32);
+
+        regs.cdr.set(cdr);
+
+        return true;
+    }
+
+    // we don't really need interrupt for now
     pub fn handle_interrupt(&mut self){}
 }
 
