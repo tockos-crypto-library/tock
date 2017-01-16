@@ -243,8 +243,8 @@ pub unsafe fn reset_handler() {
     // FXOS8700CQ accelerometer, device address 0x1e
     let fxos8700_i2c = static_init!(I2CDevice, I2CDevice::new(mux_i2c, 0x1e), 32);
     let fxos8700 = static_init!(
-        capsules::fxos8700_cq::Fxos8700cq<'static>,
-        capsules::fxos8700_cq::Fxos8700cq::new(fxos8700_i2c, &mut capsules::fxos8700_cq::BUF),
+        capsules::fxos8700cq::Fxos8700cq<'static>,
+        capsules::fxos8700cq::Fxos8700cq::new(fxos8700_i2c, &mut capsules::fxos8700cq::BUF),
         256/8);
     fxos8700_i2c.set_client(fxos8700);
     let virtual_ninedof = static_init!(
