@@ -21,3 +21,6 @@ for mkfile in `find . -maxdepth 3 -name Makefile`; do
 	make
 	popd > /dev/null
 done
+
+echo ""
+echo $(tput bold)All apps built successfully
