@@ -4,7 +4,7 @@
 #include <timer.h>
 #include <isl29035.h>
 #include <si7021.h>
-#include <FXOS8700CQ.h>
+#include <ninedof.h>
 #include <button.h>
 #include <led.h>
 #include <adc.h>
@@ -35,7 +35,7 @@ void timer_fired(__attribute__ ((unused)) int arg0,
   int d0, d1, d6, d7;
 
   si7021_get_temperature_humidity_sync(&temp, &humi);
-  accel_mag = FXOS8700CQ_read_accel_mag();
+  accel_mag = ninedof_read_accel_mag();
   light = isl29035_read_light_intensity();
 
   // A0-A5

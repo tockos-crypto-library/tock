@@ -6,20 +6,20 @@
 extern "C" {
 #endif
 
-#define DRIVER_NUM_FXO 11
+#define DRIVER_NUM_NINEDOF 11
 
 // Proivide a callback function for acceleration readings
-int FXOS8700CQ_subscribe(subscribe_cb callback, void* userdata);
+int ninedof_subscribe(subscribe_cb callback, void* userdata);
 // Read acceleration and relay to callback function
-int FXOS8700CQ_start_accel_reading();
+int ninedof_start_accel_reading();
 // Read square of magnitude of acceleration (blocking)
-double FXOS8700CQ_read_accel_mag();
+double ninedof_read_accel_mag();
 
 // Get the magnitude of acceleration in the X,Y,Z directions. Blocking.
-int FXOS8700CQ_read_acceleration_sync(int* x, int* y, int* z);
+int ninedof_read_acceleration_sync(int* x, int* y, int* z);
 
 // Get a reading from the magnetometer. Blocking.
-int FXOS8700CQ_read_magenetometer_sync(int* x, int* y, int* z);
+int ninedof_read_magenetometer_sync(int* x, int* y, int* z);
 
 #ifdef __cplusplus
 }
