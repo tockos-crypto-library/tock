@@ -14,11 +14,9 @@
 use core::cell::Cell;
 use core::mem;
 use kernel::common::volatile_cell::VolatileCell;
-use kernel::hil;
 use kernel::hil::dac::DacSingle;
 use nvic;
-use pm::{self, Clock, PBAClock};
-use scif;
+use pm;
 
 #[repr(C, packed)]
 pub struct DacRegisters {

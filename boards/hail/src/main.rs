@@ -17,6 +17,7 @@ use kernel::{Chip, MPU, Platform};
 use kernel::hil;
 use kernel::hil::Controller;
 use kernel::hil::spi::SpiMaster;
+use kernel::hil::dac::DacSingle;
 use sam4l::usart;
 
 #[macro_use]
@@ -338,6 +339,13 @@ pub unsafe fn reset_handler() {
     hail.nrf51822.initialize();
 
     let mut chip = sam4l::chip::Sam4l::new();
+
+    let dac = static_init!(
+        capsules::dac::DAC<'static, sam4l::dac::Dac>,
+        capsules::dac::DAC::new(&mut sam4l::dac::DAC),
+        32/8);
+    sam4l::dac::DAC.enable();
+
     chip.mpu().enable_mpu();
 
     kernel::main(&hail, &mut chip, load_processes(), &hail.ipc);
