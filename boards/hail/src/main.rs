@@ -77,6 +77,7 @@ struct Hail {
                                               VirtualMuxAlarm<'static, sam4l::ast::Ast<'static>>>,
     fxos8700: &'static capsules::fxos8700_cq::Fxos8700cq<'static>,
     spi: &'static capsules::spi::Spi<'static, VirtualSpiMasterDevice<'static, sam4l::spi::Spi>>,
+    i2c_master_slave: &'static capsules::i2c_master_slave_driver::I2CMasterSlaveDriver<'static>,
     nrf51822: &'static Nrf51822Serialization<'static, usart::USART>,
     adc: &'static capsules::adc::ADC<'static, sam4l::adc::Adc>,
     led: &'static capsules::led::LED<'static, sam4l::gpio::GPIOPin>,
@@ -103,6 +104,7 @@ impl Platform for Hail {
             9 => f(Some(self.button)),
             10 => f(Some(self.si7021)),
             11 => f(Some(self.fxos8700)),
+            13 => f(Some(self.i2c_master_slave)),
 
             14 => f(Some(self.rng)),
 
@@ -135,15 +137,15 @@ unsafe fn set_pin_primary_functions() {
     PA[19].configure(None); //... unused
     PA[20].configure(None); //... !LIGHT_INT - ISL29035 Light Sensor Interrupt
     // SPI Mode
-    PA[21].configure(Some(A)); // D3 - SPI MISO
-    PA[22].configure(Some(A)); // D2 - SPI MOSI
-    PA[23].configure(Some(A)); // D4 - SPI SCK
-    PA[24].configure(Some(A)); // D5 - SPI CS0
+    //PA[21].configure(Some(A)); // D3 - SPI MISO
+    //PA[22].configure(Some(A)); // D2 - SPI MOSI
+    //PA[23].configure(Some(A)); // D4 - SPI SCK
+    //PA[24].configure(Some(A)); // D5 - SPI CS0
     // // I2C MODE
-    // PA[21].configure(None); // D3
-    // PA[22].configure(None); // D2
-    // PA[23].configure(Some(B)); // D4 - TWIMS0 SDA
-    // PA[24].configure(Some(B)); // D5 - TWIMS0 SCL
+     PA[21].configure(None); // D3
+     PA[22].configure(None); // D2
+     PA[23].configure(Some(B)); // D4 - TWIMS0 SDA
+     PA[24].configure(Some(B)); // D5 - TWIMS0 SCL
     // UART Mode
     PA[25].configure(Some(B)); // RX - USART2 RXD
     PA[26].configure(Some(B)); // TX - USART2 TXD
@@ -204,6 +206,24 @@ pub unsafe fn reset_handler() {
         MuxAlarm::new(&sam4l::ast::AST),
         16);
     ast.configure(mux_alarm);
+
+    //
+    // I2C Buses
+    //
+    // To Backplane
+    let i2c_master_slave = static_init!(
+        capsules::i2c_master_slave_driver::I2CMasterSlaveDriver<'static>,
+        capsules::i2c_master_slave_driver::I2CMasterSlaveDriver::new(&sam4l::i2c::I2C0,
+            &mut capsules::i2c_master_slave_driver::BUFFER1,
+            &mut capsules::i2c_master_slave_driver::BUFFER2,
+            &mut capsules::i2c_master_slave_driver::BUFFER3),
+        928/8);
+    sam4l::i2c::I2C0.set_master_client(i2c_master_slave);
+    sam4l::i2c::I2C0.set_slave_client(i2c_master_slave);
+
+    // Set I2C slave address here, because it is board specific and not app
+    // specific. It can be overridden in the app, of course.
+    hil::i2c::I2CSlave::set_address(&sam4l::i2c::I2C0, 0x32);
 
     let sensors_i2c = static_init!(MuxI2C<'static>, MuxI2C::new(&sam4l::i2c::I2C1), 20);
     sam4l::i2c::I2C1.set_master_client(sensors_i2c);
@@ -353,6 +373,7 @@ pub unsafe fn reset_handler() {
         spi: spi_syscalls,
         nrf51822: nrf_serialization,
         adc: adc,
+        i2c_master_slave: i2c_master_slave,
         led: led,
         button: button,
         rng: rng,
