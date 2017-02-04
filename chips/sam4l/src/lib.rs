@@ -24,6 +24,7 @@ pub mod adc;
 pub mod flashcalw;
 pub mod wdt;
 pub mod trng;
+pub mod aesa;
 
 unsafe extern "C" fn unhandled_interrupt() {
     let mut interrupt_number: u32;

@@ -22,6 +22,7 @@ use kernel::hil::spi::SpiMaster;
 use kernel::mpu::MPU;
 use sam4l::trng;
 use sam4l::usart;
+use sam4l::aesa;
 
 #[macro_use]
 pub mod io;
@@ -429,6 +430,19 @@ pub unsafe fn reset_handler() {
     firestorm.nrf51822.initialize();
 
     let mut chip = sam4l::chip::Sam4l::new();
+    
+        chip.mpu().enable_mpu();
+    //print!("this");
+    println!("Team");
+    println!("New");
+    println!("World");
+    //////////////////////
+    let aesa_temp = &sam4l::aesa::AES_dev_inst;
+    aesa_temp.aes_get_config_defaults();
+    
+    
+    
+    
     chip.mpu().enable_mpu();
 
 
