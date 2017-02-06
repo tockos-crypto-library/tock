@@ -438,6 +438,7 @@ pub unsafe fn reset_handler() {
     println!("World");
     //////////////////////
     let aesa_temp = &sam4l::aesa::AES_dev_inst;
+    println!("Are we ready? Check sr {}",aesa_temp.aes_read_done());
     aesa_temp.aes_get_config_defaults();
     //aesa_temp.aes_set_config();
     //daesa_temp.aes_get_config_defaults();
@@ -450,6 +451,7 @@ pub unsafe fn reset_handler() {
 	0x60367a0d,
 	0xf3ca9ea8,
 0x97ef6624];
+    println!("Are we ready? Check sr {}",aesa_temp.aes_read_done());
     aesa_temp.aes_set_enable();
     aesa_temp.aes_set_new_message();
     
@@ -457,9 +459,13 @@ pub unsafe fn reset_handler() {
     
     aesa_temp.aes_write_key(&key128);
     aesa_temp.aes_write_input_data(ref_plain_text[0]);
+    aesa_temp.aes_write_input_data(ref_plain_text[1]);
+    aesa_temp.aes_write_input_data(ref_plain_text[2]);
+    aesa_temp.aes_write_input_data(ref_plain_text[3]);
     println!("The params are  {}", aesa_temp.aes_read_parameter());
-    //while aesa_temp.aes_done()!= 1 {
-    //}
+    println!("Are we ready? Check sr {}",aesa_temp.aes_read_done());
+    while aesa_temp.aes_done()!= 1 {
+    }
     let output:u32 = aesa_temp.aes_read_output_data();
     println!("We got {} , {}",output, ref_cipher_text[0]);
     
