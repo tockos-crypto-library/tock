@@ -439,9 +439,29 @@ pub unsafe fn reset_handler() {
     //////////////////////
     let aesa_temp = &sam4l::aesa::AES_dev_inst;
     aesa_temp.aes_get_config_defaults();
+    //aesa_temp.aes_set_config();
+    //daesa_temp.aes_get_config_defaults();
+    let  key128:[u32; 4] = [0x16157e2b,0xa6d2ae28,0x8815f7ab,0x3c4fcf09];
+    let  ref_plain_text:[u32; 4] = [ 0xe2bec16b,
+	0x969f402e,
+	0x117e3de9,
+0x2a179373];
+    let  ref_cipher_text:[u32; 4] = [ 0xb47bd73a,
+	0x60367a0d,
+	0xf3ca9ea8,
+0x97ef6624];
+    aesa_temp.aes_set_enable();
+    aesa_temp.aes_set_new_message();
     
+    println!("Are we ready? Check sr {}",aesa_temp.aes_read_done());
     
-    
+    aesa_temp.aes_write_key(&key128);
+    aesa_temp.aes_write_input_data(ref_plain_text[0]);
+    println!("The params are  {}", aesa_temp.aes_read_parameter());
+    //while aesa_temp.aes_done()!= 1 {
+    //}
+    let output:u32 = aesa_temp.aes_read_output_data();
+    println!("We got {} , {}",output, ref_cipher_text[0]);
     
     chip.mpu().enable_mpu();
 

@@ -38,8 +38,18 @@ use kernel::hil;
 use kernel::hil::adc;
 use kernel::returncode::ReturnCode;
 use nvic;
-use pm::{self, Clock, PBAClock};
+use pm::{self, Clock, HSBClock};
 use scif;
+/*
+pub struct Aes_config { //aes_config 
+    encrypt_mode: u32, // 0 to decrypt, 1 to encrypt
+    key_size: u32, //0 = 128bits, 1 = 192bits, 2 = 256bits
+    dma_mode: u32, //0=Non-DMA mode, 1=DMA mode
+    opmode: u32, //0 = ECB, 1 = CBC, 2 = OFB, 3 = CFB, 4 = CTR
+    cfb_size: u32, //0 = 128bits, 1 = 64bits, 2 = 32bits, 3 = 16bits, 4 = 8bits 
+    countermeasure_mask: u32, // [0,15], bit=0 means CounterMeasure is disabled.
+}
+*/
 
 #[repr(C, packed)]
 pub struct AesaRegisters {
@@ -50,15 +60,16 @@ pub struct AesaRegisters {
     sr: VolatileCell<u32>, // Status Register          (0x0c)
     ier: VolatileCell<u32>, // interrupt Enable Register  (0x10)
     idr: VolatileCell<u32>, // Interrupt Disable Register  (0x14)
-    imr: VolatileCell<u32>, // Interrupt Mask Register          (0x18)
-    key0: VolatileCell<u32>, // Key Register 0        (0x20)
-    key1: VolatileCell<u32>, // Key Register 1    (0x24)
-    key2: VolatileCell<u32>, // Key Register 2       (0x28)
-    key3: VolatileCell<u32>, // Key Register 3     (0x2C)
-    key4: VolatileCell<u32>, // Key Register 4 (0x30)
-    key5: VolatileCell<u32>, // Key Register 5    (0x34)
-    key6: VolatileCell<u32>, // Key Register 6    (0x38)
-    key7: VolatileCell<u32>, // Key Register 7       (0x3c)
+    imr: [VolatileCell<u32>; 2], // Interrupt Mask Register          (0x18)
+    key: [VolatileCell<u32>; 8],
+    //key0: VolatileCell<u32>, // Key Register 0        (0x20)
+    //key1: VolatileCell<u32>, // Key Register 1    (0x24)
+    //key2: VolatileCell<u32>, // Key Register 2       (0x28)
+    //key3: VolatileCell<u32>, // Key Register 3     (0x2C)
+    //key4: VolatileCell<u32>, // Key Register 4 (0x30)
+    //key5: VolatileCell<u32>, // Key Register 5    (0x34)
+    //key6: VolatileCell<u32>, // Key Register 6    (0x38)
+    //key7: VolatileCell<u32>, // Key Register 7       (0x3c)
     initvect0: VolatileCell<u32>, // Initialization Vector Register 0        (0x40)
     initvect1: VolatileCell<u32>, // Initialization Vector Register 1          (0x44)
     initvect2: VolatileCell<u32>, // Initialization Vector Register 2      (0x48)
@@ -76,14 +87,7 @@ pub struct AesaRegisters {
 const BASE_ADDRESS: *mut AesaRegisters = 0x400B0000 as *mut AesaRegisters;
 
 
-pub struct Aes_config { //aes_config 
-    encrypt_mode: u32, // 0 to decrypt, 1 to encrypt
-    key_size: u32, //0 = 128bits, 1 = 192bits, 2 = 256bits
-    dma_mode: u32, //0=Non-DMA mode, 1=DMA mode
-    opmode: u32, //0 = ECB, 1 = CBC, 2 = OFB, 3 = CFB, 4 = CTR
-    cfb_size: u32, //0 = 128bits, 1 = 64bits, 2 = 32bits, 3 = 16bits, 4 = 8bits 
-    countermeasure_mask: u32, // [0,15], bit=0 means CounterMeasure is disabled.
-}
+
 
 pub struct Aes_dev_inst { //aes_dev_inst
     registers: *mut AesaRegisters, //Aesa *hw_dev;
@@ -133,11 +137,24 @@ impl Aes_dev_inst {
         self.opmode.set(0);
         self.cfb_size.set(0);
         self.countermeasure_mask.set(0x0F);
-    
+        /*
+        dev_inst->aes_cfg->encrypt_mode |
+			AESA_MODE_KEYSIZE(dev_inst->aes_cfg->key_size) |
+			(dev_inst->aes_cfg->dma_mode ? AESA_MODE_DMA : 0) |
+			AESA_MODE_OPMODE(dev_inst->aes_cfg->opmode) |
+			AESA_MODE_CFBS(dev_inst->aes_cfg->cfb_size) |
+AESA_MODE_CTYPE(dev_inst->aes_cfg->countermeasure_mask);
+        
+        */
+        let mut value:u32=1|(0xf<<16);
+        unsafe {pm::enable_clock(Clock::HSB(HSBClock::AESA));}
+        unsafe { (*self.registers).mode.set(value) };
+        unsafe {pm::disable_clock(Clock::HSB(HSBClock::AESA));}
     
     }
     
     pub fn aes_set_config(&self){
+        unsafe {pm::enable_clock(Clock::HSB(HSBClock::AESA));}
         let mut value:u32=self.encrypt_mode.get();
         if self.dma_mode.get() != 0 {
             value=value|8;
@@ -148,10 +165,68 @@ impl Aes_dev_inst {
         value=value| (((0x7 << 8) & ((self.cfb_size.get()) << 8)));
         value=value| (((0xF << 16) & ((self.countermeasure_mask.get()) << 16)));
         unsafe { (*self.registers).mode.set(value) };
+        unsafe {pm::disable_clock(Clock::HSB(HSBClock::AESA));}
 
     }
+    
+    pub fn aes_set_enable(&self){
+        unsafe {pm::enable_clock(Clock::HSB(HSBClock::AESA));}
+        unsafe { (*self.registers).ctrl.set(1) };
+        
+        unsafe { nvic::enable(nvic::NvicIdx::AESA) };
+        unsafe {  scif::generic_clock_enable(scif::GenericClock::GCLK4, scif::ClockSource::CLK_CPU) };
+        //unsafe { (*self.registers).ier.set(1) };
 
+    }
+    
+    pub fn aes_set_new_message(&self){
+        unsafe { (*self.registers).ctrl.set((*self.registers).ctrl.get()|4) };
+    
+    }
+    
+    //for 128 key only
+    pub fn aes_write_key(&self, input_key: &[u32; 4]){
+    
+        for x in 0..4 {
+            unsafe { (*self.registers).key[x].set(input_key[x]) };
+        }
+    }
+    pub fn aes_write_input_data(&self,   input_data: u32){
+    
+        //for x in 0..4 {
+            unsafe { (*self.registers).idata[0].set(input_data) };
+        //}
+    }
+    
+    
+    pub fn aes_read_output_data(&self) -> u32{
+    
+        //for x in 0..4 {
+            unsafe { return (*self.registers).odata[0].get() };
+        //}
+    }
+    
+    pub fn aes_read_parameter(&self) -> u32{
+    
+        //for x in 0..4 {
+            unsafe { return (*self.registers).parameter.get() };
+        //}
+    }
+
+    pub fn aes_done(&self) -> u32{
+    
+        //for x in 0..4 {
+            unsafe { return ((*self.registers).sr.get()&1) };
+        //}
+    }
+    pub fn aes_read_done(&self) -> u32{
+    
+        //for x in 0..4 {
+            unsafe { return ((*self.registers).sr.get()) };
+        //}
+    }
 }
+
 
 
 
