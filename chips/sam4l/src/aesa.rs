@@ -178,6 +178,9 @@ AESA_MODE_CTYPE(dev_inst->aes_cfg->countermeasure_mask);
         //unsafe { (*self.registers).ier.set(1) };
 
     }
+    pub fn aes_set_disable(&self){
+        unsafe { (*self.registers).ctrl.set(0) };
+    }
     
     pub fn aes_set_new_message(&self){
         unsafe { (*self.registers).ctrl.set((*self.registers).ctrl.get()|4) };
@@ -205,6 +208,7 @@ AESA_MODE_CTYPE(dev_inst->aes_cfg->countermeasure_mask);
             unsafe { return (*self.registers).odata[0].get() };
         //}
     }
+
     
     pub fn aes_read_parameter(&self) -> u32{
     
@@ -223,7 +227,13 @@ AESA_MODE_CTYPE(dev_inst->aes_cfg->countermeasure_mask);
     
         //for x in 0..4 {
             unsafe { return ((*self.registers).sr.get()) };
-        //}
+        //}   databufptr
+    }
+    pub fn aes_read_data_buffer(&self) -> u32{
+    
+        //for x in 0..4 {
+            unsafe { return ((*self.registers).databufptr.get()) };
+        //}   databufptr
     }
 }
 
